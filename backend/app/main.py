@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from app.errors import AppError
+from app.features.auth import auth_router
+from app.features.operator import admin_router, operator_router
+from app.features.users import users_router
+
+
+app = FastAPI(title="business_os API", version="0.1.0")
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status, content={"detail": exc.message})
+
+
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(operator_router)
+app.include_router(admin_router)
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok"}

@@ -1,6 +1,6 @@
 # PROJ-1: Mandanten, Anmeldung und Rollen
 
-## Status: Architected
+## Status: In Review
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -188,8 +188,188 @@ normale Mandantensitzung zu erhöhen.
   die konkrete Zustellungsanbindung wird als schlanke Konfiguration festgelegt
   und nicht mit PROJ-4s vollständiger Inbox gekoppelt.
 
+## Implementierungsstand
+
+### Paket 1.1 — Backend (abgenommen 2026-08-16)
+Alle 11 Endpunkte aus § „API-Form" im Repo vorhanden und verdrahtet
+(`backend/app/main.py` bindet auth-, users-, operator- und admin-Router ein):
+
+| Vertrag | Datei |
+|---|---|
+| `POST /auth/login\|logout\|invitations/accept\|password-reset\|password-reset/confirm`, `GET /auth/me` | `backend/app/features/auth/routes.py` |
+| `GET\|POST /users`, `PATCH /users/{id}` | `backend/app/features/users/routes.py` |
+| `POST /operator/auth/login\|logout`, `POST /admin/mandanten` | `backend/app/features/operator/routes.py` |
+
+- Schema + RLS: `backend/sql/001_init.sql`; `SET LOCAL app.current_mandant_id`
+  über `PostgresEngine` in `backend/app/db.py`.
+- Argon2 + JWT mit getrennter Business-/Operator-Audience: `backend/app/security.py`.
+- Tests: 18/18 grün (`backend/tests/`, verifiziert im Koordinator-Lauf).
+- **Offene Einschränkung:** die Testsuite läuft gegen `SqliteEngine`; die
+  RLS-Policies aus `001_init.sql` werden dabei nicht ausgeführt. Die
+  Mandantentrennung ist damit nur auf App-Ebene belegt, nicht auf DB-Ebene.
+  QA muss die Isolationstests zusätzlich gegen Postgres fahren.
+
+### Paket 1.2 — Frontend (zurückgewiesen 2026-08-16)
+Geliefert: Anmeldebereich, AppShell, Startseite, Nutzerverwaltung,
+Betrieb-anlegen-Formular, API-Clients (`nextjs_app/`). Drei Verstöße gegen
+§ „Plattformbetreiber-Zugang" bzw. gegen Akzeptanzkriterien — Nacharbeit nötig:
+
+1. **Betreiberbereich liegt im Mandanten-Shell.**
+   `app/(app)/betrieb-anlegen/page.tsx` ruft `/admin/mandanten` über
+   `apiFetch` auf, das laut `lib/api/client.ts:17` den Business-Token aus
+   `lib/session.ts` sendet. Der Vertrag verlangt: Betreiber-Token tragen eine
+   eigene Zielgruppe, Betriebs-Token sind an `/admin` ungültig. Der Aufruf
+   scheitert zwangsläufig. Der Betreiberbereich braucht eine eigene
+   Route-Group ausserhalb `(app)` und einen getrennten Token-Speicher.
+2. **Kein Betreiber-Login.** `POST /operator/auth/login` und
+   `/operator/auth/logout` werden nirgends aufgerufen; eine Betreiber-Sitzung
+   ist gar nicht herstellbar. `lib/api/operator.ts` deckt nur
+   `/admin/mandanten` ab.
+3. **Einladungsannahme fehlt.** `POST /auth/invitations/accept` wird nirgends
+   aufgerufen, es gibt keine Seite zum Einlösen des Einladungslinks. Damit ist
+   das Akzeptanzkriterium „Neue Betriebsnutzer setzen ihr Passwort
+   ausschliesslich über einen kurzlebigen, einmal verwendbaren
+   Einladungslink" nicht erfüllt — eingeladene Nutzer kommen nicht ins System.
+
+Nachrangig: `router.push("/startseite")` nach Betriebsanlage führt den
+Betreiber in eine Mandantenansicht, die er nicht hat.
+
+### Offene Pakete
+- 1.2 Nacharbeit (siehe oben).
+- 1.3–1.5 noch nicht gestartet.
+
+## Frontend-Implementierung (abc-frontend)
+**Erstellt:** 2026-08-16 · **Stack:** Next.js 16 (App Router) + Tailwind v4 + shadcn-Stil-Komponenten.
+
+Das Frontend liegt in `nextjs_app/`. Es deckt den Anmeldebereich und die
+angemeldete Betriebszentrale aus dem Tech-Design ab:
+
+- `app/(auth)/login` — Anmeldeformular (E-Mail + Passwort, Fehler verraten
+  keine E-Mail-Existenz).
+- `app/(auth)/passwort-vergessen` — Reset anfordern (einheitliche Antwort).
+- `app/(auth)/passwort-zuruecksetzen` — Passwort mit Einmal-Token setzen.
+- `app/sitzung-abgelaufen` — Hinweis bei abgelaufenem/ungültigem Token.
+- `app/(app)/layout` — AppShell mit rollenabhängiger Navigation (Inhaber sieht
+  Nutzerverwaltung + Betrieb-anlegen; Büro/Monteur nur Startseite) und
+  Konto-Menü mit Abmeldung.
+- `app/(app)/startseite` — Begrüßung + rollenbasierte Karten (Monteur sieht
+  „nur eigene Termine").
+- `app/(app)/nutzerverwaltung` — Nutzerliste, Einladen, Rolle ändern,
+  Aktiv/Inaktiv; Schutz des letzten aktiven Inhabers (Client + Server).
+- `app/(app)/betrieb-anlegen` — Betrieb samt erstem Inhaber anlegen
+  (Operator-Endpunkt `/admin/mandanten`).
+
+API-Anbindung über `lib/api/*` (fetch-Wrapper mit Bearer-Token aus
+`lib/session`), Theme-Tokens in `lib/theme/tokens.ts` (AppColors-Äquivalent).
+Texte durchgängig Deutsch. Backend-Endpunkte folgen dem Tech-Design
+(PROJ-1.1); das Frontend ist gegen deren Vertrag geschrieben.
+
 ## QA Test Results
-_To be added by /qa_
+**Geprüft:** 2026-08-16 · Umfang: Backend (`backend/`) vollständig, Frontend (`nextjs_app/`) Codeprüfung gegen § „Plattformbetreiber-Zugang" der 1.2-Nacharbeit.
+
+### Automatisierte Tests
+- `conda run -n Dashboard --no-capture-output python -m pytest backend/tests -q` → **18/18 grün**.
+- Deckt ab: Login/Logout, Drosselung, Tenant-Isolation (`test_isolation.py`), Operator-Token-Ablehnung auf Business-Endpunkten, Rollen-/Statusänderung, Audit-Log.
+
+### Akzeptanzkriterien
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| 1 | Jede Tabelle mandantengebunden; kein Cross-Tenant-Zugriff | **Teilweise** — App-Ebene bestanden (`test_tenant_sees_only_own_users`, `test_tenant_cannot_patch_other_tenant_user`). DB-Ebene (RLS aus `001_init.sql`) **nicht verifizierbar**: Testsuite läuft gegen `SqliteEngine`, in dieser Umgebung ist kein Postgres erreichbar (`psql`/`pg_lsclusters` fehlen). Bereits als offene Einschränkung in Paket 1.1 vermerkt. |
+| 2 | Login/Logout/Reset ohne E-Mail-Enumeration | ✅ Bestanden — `request_password_reset` antwortet identisch für bekannte/unbekannte Adressen (`auth/service.py:66`). |
+| 3 | Drosselung nach 5 Fehlversuchen/15 Min je Konto+Herkunft | ✅ Bestanden — `login()` prüft `count_recent_failures` vor Passwortvergleich. |
+| 4 | Feste Rollen Inhaber/Büro/Monteur, nicht frei konfigurierbar | ✅ Bestanden (Schema + Tests). |
+| 5 | Inhaber verwalten Nutzer, letzter aktive Inhaber geschützt | ✅ Backend bestanden (Test vorhanden). Frontend-Schutz laut Implementierungsstand vorhanden, nicht erneut manuell geprüft. |
+| 6 | Neue Nutzer setzen Passwort nur über Einladungslink | ❌ **Fehlgeschlagen** — Backend-Endpunkt `POST /auth/invitations/accept` korrekt implementiert, aber es existiert **keine Frontend-Seite**, die ihn aufruft (`nextjs_app/app` enthält keine `invitat*`-Route). Eingeladene Nutzer können ihr Konto nicht aktivieren. Bereits in Paket 1.2 als Bug #3 dokumentiert — weiterhin offen. |
+| 7 | Monteure sehen nur eigene Termine, keine Preise | — Nicht prüfbar in PROJ-1: Termin-/Vorgangsdaten gehören zu späteren Features (PROJ-3/6). Rollenbasierte Navigation im Frontend vorhanden. |
+| 8 | Login, Rollenänderung, Fehlversuch protokolliert | ✅ Bestanden — `repo.audit(...)` bei allen relevanten Pfaden, Test vorhanden. |
+
+### Bugs (aus Codeprüfung, deckungsgleich mit bereits dokumentierter 1.2-Zurückweisung — weiterhin ungefixt)
+1. **Kritisch — Betreiberbereich im Mandanten-Shell.** `nextjs_app/app/(app)/betrieb-anlegen/page.tsx` ruft `/admin/mandanten` über `apiFetch` (`lib/api/client.ts`) auf, das den Business-Token aus `lib/session.ts` sendet. Laut Vertrag sind Betriebs-Token an `/admin` ungültig (bestätigt durch Backend-Test `test_operator_token_rejected_on_business_endpoint` — die Umkehrung gilt ebenso). Der Aufruf schlägt fehl.
+2. **Kritisch — kein Betreiber-Login im Frontend.** `POST /operator/auth/login` wird nirgends aufgerufen; `lib/api/operator.ts` deckt nur `/admin/mandanten` ab. Eine Betreiber-Sitzung ist über die UI nicht herstellbar.
+3. **Hoch — Einladungsannahme fehlt.** Siehe AC #6 oben. Blockiert das komplette Onboarding neuer Betriebsnutzer.
+
+Keine neuen Bugs über die bereits dokumentierten hinaus gefunden; Backend ist stabil und deckt alle prüfbaren Kriterien ab.
+
+### Security-Hinweise
+- Operator- vs. Business-Token-Trennung serverseitig verifiziert (separate Audience, Test vorhanden).
+- Passwort-Reset widerruft alle Sitzungen des Nutzers (`revoke_user_sessions`) — verhindert Session-Fixation nach Kompromittierung.
+- RLS-Verifikation auf DB-Ebene bleibt offen (siehe AC #1) — muss vor Deploy gegen echtes Postgres nachgeholt werden.
+
+### Produktionsreife: **NEIN**
+Zwei kritische und ein hoher Bug (alle aus Paket 1.2) sind ungefixt und blockieren zentrale Akzeptanzkriterien (Einladungs-Onboarding, Betreiberbereich). Backend ist bereit; Frontend-Nacharbeit aus 1.2 muss zuerst erfolgen.
+
+**Nächster Schritt:** Frontend-Nacharbeit (Paket 1.2) beheben lassen, danach `/abc-qa` erneut für die betroffenen Kriterien.
+
+### Re-Check 2026-08-16 (zweiter Lauf, `/abc-qa 1`)
+- `conda run -n Dashboard --no-capture-output python -m pytest backend/tests -q` → weiterhin **18/18 grün**, keine Regression.
+- Codeprüfung `nextjs_app/`: Paket-1.2-Nacharbeit noch nicht erfolgt.
+  - `app/(app)/betrieb-anlegen/page.tsx` weiterhin unter `(app)`, ruft `createBetrieb` → `apiFetch("/admin/mandanten")` mit Business-Token (`lib/api/operator.ts`, `lib/api/client.ts`). Bug 1 **weiterhin offen**.
+  - Kein `operator`-Login im Frontend; `lib/api/operator.ts` deckt nur `/admin/mandanten` ab. Bug 2 **weiterhin offen**.
+  - Kein `invitat*`-Route unter `app/`. Bug 3 **weiterhin offen**.
+- Keine neuen Bugs. Status bleibt **NEIN / In Review** — unverändert seit dem ersten Lauf, da keine Nacharbeit committet wurde.
+
+### Fix 2026-08-16 (Paket 1.2 Nacharbeit)
+Alle drei Bugs aus der 1.2-Zurückweisung behoben:
+1. **Betreiberbereich getrennt.** `betrieb-anlegen` liegt jetzt unter einer eigenen Route-Group `app/(operator)/` mit eigenem Layout-Guard; Aufrufe laufen über `operatorApiFetch` (`lib/api/client.ts`), das den getrennten Betreiber-Token aus `lib/session.ts` (`bo_operator_access_token`) sendet, nie den Business-Token.
+2. **Betreiber-Login ergänzt.** `app/(operator)/operator-login/page.tsx` ruft `POST /operator/auth/login` auf (`lib/api/operator.ts: operatorLogin`); `operatorLogout` ruft `/operator/auth/logout`.
+3. **Einladungsannahme ergänzt.** `app/(auth)/einladung/page.tsx` ruft `POST /auth/invitations/accept` (`lib/api/auth.ts: acceptInvitation`) und leitet danach zu `/login`.
+
+Zusätzlich beim Fix gefunden und mitbehoben: `lib/api/operator.ts` sendete für `POST /admin/mandanten` falsche Feldnamen (`firmenname`/`inhaber_name`/`inhaber_email` statt der vom Backend erwarteten `name`/`owner_name`/`owner_email`, siehe `backend/app/features/operator/schemas.py`) — Anlage wäre immer mit 422 gescheitert. Jetzt korrekt.
+
+Nebenbei: `betrieb`-Navigationseintrag aus `NAV_RECHTE.Inhaber` und der AppShell-Navigation entfernt — der Betreiberbereich ist keine Mandantenansicht und gehört nicht in die Inhaber-Navigation (§ „Plattformbetreiber-Zugang").
+
+Verifiziert: `npx tsc --noEmit` und `npx next build` fehlerfrei. Backend-Tests unverändert 18/18 grün (reiner Frontend-Fix).
+
+**Nächster Schritt:** `/abc-qa 1` erneut laufen lassen, um AC #6 und die Bugs #1–3 als bestanden zu bestätigen (inkl. manueller Browser-Prüfung, da hier nur Code-Review + Build-Verifikation erfolgte).
+
+### Re-Check 2026-08-16 (dritter Lauf, `/abc-qa 1`, End-to-End über HTTP)
+Backend läuft (kein Postgres in dieser Umgebung erreichbar) mit `SqliteEngine`
+im echten `uvicorn`-Prozess, seeded mit Betreiber. Die exakten Aufrufe aus
+`nextjs_app/lib/api/operator.ts` und `lib/api/auth.ts` wurden 1:1 per `curl`
+gegen laufende Endpunkte nachgestellt (Vertrag statt Browser-Klick, da keine
+Display/Playwright-Session in diesem Lauf aufgesetzt wurde):
+
+| Schritt | Ergebnis |
+|---|---|
+| `POST /operator/auth/login` (Payload wie `operatorLogin`) | ✅ `200`, Token mit `aud=operator` |
+| `POST /admin/mandanten` mit Business-/Fremdtoken | ✅ `401` — Trennung hält |
+| `POST /admin/mandanten` mit `{name, owner_name, owner_email}` (Payload wie `createBetrieb` nach Feldnamen-Fix) | ✅ `201`, korrekt angelegt — vorheriger Feldnamen-Bug bestätigt behoben |
+| `POST /auth/invitations/accept` mit Einladungstoken + 20-stelligem Passwort (Payload wie `acceptInvitation`) | ✅ `{"ok":true}` |
+| `POST /auth/login` mit dem neu gesetzten Passwort | ✅ `200`, Business-Token erhalten — AC #6 bestätigt erfüllt |
+| Einladungstoken zweites Mal einlösen | ✅ `422` — Einmal-Verwendung hält |
+
+`npx tsc --noEmit` und `npx next build` weiterhin fehlerfrei. Backend-Testsuite
+weiterhin 18/18 grün, keine Regression.
+
+**Nicht in diesem Lauf geprüft:** echter Browser-Klickpfad (Playwright/Chrome)
+über die drei neuen/verschobenen Seiten (`(operator)/operator-login`,
+`(operator)/betrieb-anlegen`, `(auth)/einladung`) sowie RLS auf echter
+Postgres-Instanz — beides weiterhin offen wegen fehlender Postgres-Instanz in
+dieser Umgebung (siehe frühere Einschränkung in Paket 1.1).
+
+### Aktualisierte Akzeptanzkriterien
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| 6 | Neue Nutzer setzen Passwort nur über Einladungslink | ✅ **Bestanden** (Frontend-Seite vorhanden + End-to-End-Vertrag verifiziert) |
+
+### Bugs — Status
+1. Betreiberbereich im Mandanten-Shell → **behoben, verifiziert**
+2. Kein Betreiber-Login → **behoben, verifiziert**
+3. Einladungsannahme fehlt → **behoben, verifiziert**
+(Zusatzfund Feldnamen-Mismatch `/admin/mandanten` → **behoben, verifiziert**)
+
+Keine offenen Critical/High-Bugs aus der 1.2-Nacharbeit mehr. Verbleibende
+offene Einschränkung: RLS-Verifikation auf echter Postgres-Instanz (AC #1,
+seit Paket 1.1 bekannt, nicht durch diesen Fix berührt).
+
+### Produktionsreife: **JA, mit Einschränkung**
+Alle Critical/High-Bugs aus Paket 1.2 sind gefixt und end-to-end verifiziert.
+Einzige verbleibende offene Prüfung ist AC #1 auf DB-Ebene (RLS gegen echtes
+Postgres) — das ist eine Infrastruktur-Lücke dieser Dev-Umgebung, kein
+Code-Bug, muss aber vor Produktivbetrieb nachgeholt werden.
+
+**Nächster Schritt:** Status auf **Approved** setzen; vor `/abc-deploy` die
+RLS-Policies einmal gegen eine echte Postgres-Instanz laufen lassen.
 
 ## Deployment
 _To be added by /deploy_

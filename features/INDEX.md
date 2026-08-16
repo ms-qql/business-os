@@ -4,7 +4,7 @@
 
 | ID | Feature | Priorität | Status | Abhängigkeiten | ImmoCRM-Reuse |
 |---|---|---|---|---|---|
-| PROJ-1 | Mandanten, Anmeldung und Rollen | P0 | Architected | — | Auth, Passwort-, JWT-, TOTP- und Audit-Muster; RLS neu |
+| PROJ-1 | Mandanten, Anmeldung und Rollen | P0 | Approved | — | Auth, Passwort-, JWT-, TOTP- und Audit-Muster; RLS neu |
 | PROJ-2 | Geführte SHK-Website, Branding und Anfrageformular | P0 | Planned | PROJ-1 | Branding-Settings und Logo-Speicher; Website neu |
 | PROJ-3 | Kunden, Objekte, Vorgänge und Dokumente | P0 | Planned | PROJ-1 | Objekt- und Anhangspeicher; Datenmodell neu |
 | PROJ-4 | E-Mail-Inbox und Vorgangskommunikation | P0 | Planned | PROJ-1, PROJ-3 | IMAP/SMTP, MIME, Polling und Fehlerlogik extrahieren |

@@ -1,0 +1,68 @@
+import { API_BASE, getOperatorToken, getToken } from "@/lib/session";
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = "ApiError";
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit,
+  token: string | null,
+  onUnauthorized: () => void,
+): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (res.status === 401) {
+    onUnauthorized();
+    throw new ApiError(401, "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.");
+  }
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    const message =
+      (data && (data.detail as string)) ||
+      `Anfrage fehlgeschlagen (${res.status}).`;
+    throw new ApiError(res.status, message);
+  }
+  return data as T;
+}
+
+/** Business-Aufruf — sendet den Mandanten-Token aus der aktiven Nutzersitzung. */
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  return request<T>(path, options, getToken(), () => {
+    if (typeof window !== "undefined") {
+      import("@/lib/session").then((m) => m.clearToken());
+    }
+  });
+}
+
+/** Betreiber-Aufruf — sendet den getrennten Betreiber-Token, niemals den Business-Token. */
+export async function operatorApiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  return request<T>(path, options, getOperatorToken(), () => {
+    if (typeof window !== "undefined") {
+      import("@/lib/session").then((m) => m.clearOperatorToken());
+    }
+  });
+}
