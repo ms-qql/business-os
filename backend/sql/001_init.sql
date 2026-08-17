@@ -97,6 +97,14 @@ ALTER TABLE einladungen ENABLE ROW LEVEL SECURITY;
 ALTER TABLE passwort_resets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS mandanten_isolation_select ON mandanten;
+DROP POLICY IF EXISTS mandanten_isolation_modify ON mandanten;
+DROP POLICY IF EXISTS nutzer_isolation ON nutzer;
+DROP POLICY IF EXISTS sitzungen_isolation ON sitzungen;
+DROP POLICY IF EXISTS einladungen_isolation ON einladungen;
+DROP POLICY IF EXISTS passwort_resets_isolation ON passwort_resets;
+DROP POLICY IF EXISTS audit_isolation ON audit_events;
+
 CREATE POLICY mandanten_isolation_select ON mandanten
     FOR SELECT USING (id = current_setting('app.current_mandant_id')::uuid);
 CREATE POLICY mandanten_isolation_modify ON mandanten
