@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -25,8 +26,8 @@ class KundeRead(BaseModel):
     email: Optional[str] = None
     telefon: Optional[str] = None
     notiz: Optional[str] = None
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
 
 
 class KundeCreateRead(KundeRead):
@@ -45,7 +46,7 @@ class ObjektRead(BaseModel):
     kunde_id: str
     adresse: str
     notiz: Optional[str] = None
-    created_at: str
+    created_at: datetime | str
 
 
 class KundenListResponse(BaseModel):

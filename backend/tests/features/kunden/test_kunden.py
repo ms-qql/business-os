@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+
+from app.features.kunden.schemas import KundeCreateRead
 from conftest import make_mandant, make_user
 
 
@@ -9,6 +12,12 @@ def _login(client, mandant, email, role="Buero"):
 
 def _auth(tok):
     return {"Authorization": f"Bearer {tok}"}
+
+
+def test_kunde_response_accepts_postgres_timestamps():
+    now = datetime.now(timezone.utc)
+    kunde = KundeCreateRead(id="id", name="Kunde", created_at=now, updated_at=now)
+    assert kunde.created_at == now
 
 
 def test_buero_creates_and_lists_kunde(client, mandant):
