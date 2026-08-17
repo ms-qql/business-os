@@ -11,9 +11,8 @@ export interface AuthUser {
   mandant_name: string;
 }
 
-export interface LoginResponse {
+interface LoginResponse {
   access_token: string;
-  user: AuthUser;
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
@@ -22,7 +21,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     body: JSON.stringify({ email, password }),
   });
   setToken(data.access_token);
-  return data.user;
+  return fetchMe();
 }
 
 export async function logout(): Promise<void> {
@@ -52,7 +51,17 @@ export async function confirmPasswordReset(
 }
 
 export async function fetchMe(): Promise<AuthUser> {
-  return apiFetch<AuthUser>("/auth/me");
+  const me = await apiFetch<{
+    id: string; mandant_id: string; name: string; email: string; role: string;
+  }>("/auth/me");
+  return {
+    user_id: me.id,
+    username: me.email,
+    name: me.name,
+    rolle: me.role === "Buero" ? "Büro" : me.role as Rolle,
+    mandant_id: me.mandant_id,
+    mandant_name: "Mein Betrieb",
+  };
 }
 
 /** Einladung einlösen — neuer Betriebsnutzer setzt sein Passwort selbst. */
