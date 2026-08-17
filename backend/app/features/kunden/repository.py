@@ -42,6 +42,17 @@ def get_kunde(mandant_id: str, kunde_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def get_kunde_by_email(mandant_id: str, email: str) -> dict | None:
+    if not email:
+        return None
+    rows = db.engine.query(
+        "SELECT id, name, email, telefon, notiz, created_at, updated_at FROM kunde "
+        "WHERE mandant_id = %s AND LOWER(email) = LOWER(%s) LIMIT 1",
+        (mandant_id, email), mandant_id=mandant_id,
+    )
+    return rows[0] if rows else None
+
+
 def find_moegliche_duplikate(mandant_id: str, email: str | None, telefon: str | None) -> list[dict]:
     if not email and not telefon:
         return []

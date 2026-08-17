@@ -10,6 +10,8 @@ import { Alert } from "@/components/ui/label";
 import { VorgangStatusBadge } from "@/components/vorgaenge/vorgang-status-badge";
 import { VorgangChronik } from "@/components/vorgaenge/vorgang-chronik";
 import { VorgangDokumente } from "@/components/vorgaenge/vorgang-dokumente";
+import { VorgangEmail } from "@/components/email/vorgang-email";
+import { PostfachWarnung } from "@/components/email/postfach-warnung";
 import { getVorgang, updateVorgang, zuweisen, type VorgangDetail as VorgangDetailT } from "@/lib/api/vorgaenge";
 import { getKunde, listObjekte, type Kunde, type Objekt } from "@/lib/api/kunden";
 import { listNutzer, type Nutzer } from "@/lib/api/users";
@@ -117,6 +119,8 @@ export function VorgangDetail({ vorgangId, rolle }: { vorgangId: string; rolle: 
 
   return (
     <div className="space-y-6">
+      <PostfachWarnung />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{vorgang.anliegen}</h1>
@@ -246,6 +250,15 @@ export function VorgangDetail({ vorgangId, rolle }: { vorgangId: string; rolle: 
             darfSchreiben={darfSchreiben}
             onChange={(dokumente) => setVorgang({ ...vorgang, dokumente })}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>E-Mail-Kommunikation</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <VorgangEmail vorgangId={vorgang.id} darfSchreiben={darfSchreiben} />
         </CardContent>
       </Card>
     </div>

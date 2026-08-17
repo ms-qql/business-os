@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.errors import AppError
 from app.features.auth import auth_router
+from app.features.email import email_router, internal_router
 from app.features.kunden import kunden_router
 from app.features.operator import admin_router, operator_router
 from app.features.users import users_router
@@ -29,6 +30,8 @@ app.include_router(settings_router)
 app.include_router(kunden_router)
 app.include_router(vorgaenge_router)
 app.include_router(anfragen_router)
+app.include_router(email_router)
+app.include_router(internal_router)
 
 
 @app.get("/health")

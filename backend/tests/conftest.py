@@ -106,6 +106,29 @@ CREATE TABLE vorgang_dokument (
     objektpfad TEXT NOT NULL, content_type TEXT NOT NULL, groesse_bytes INTEGER NOT NULL,
     hochgeladen_von TEXT, created_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE email_konto (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, imap_host TEXT NOT NULL,
+    imap_port INTEGER NOT NULL DEFAULT 993, imap_user TEXT NOT NULL, imap_passwort TEXT NOT NULL,
+    imap_tls BOOLEAN NOT NULL DEFAULT 1, smtp_host TEXT NOT NULL, smtp_port INTEGER NOT NULL DEFAULT 465,
+    smtp_user TEXT, smtp_passwort TEXT, smtp_tls BOOLEAN NOT NULL DEFAULT 1,
+    letzter_abruf_status TEXT, letzter_abruf_fehler_text TEXT, letzter_abruf_at TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE email_thread (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT, kunde_id TEXT,
+    betreff TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE email_nachricht (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, thread_id TEXT NOT NULL, richtung TEXT NOT NULL,
+    absender TEXT NOT NULL, empfaenger TEXT NOT NULL, betreff TEXT, text_html TEXT, text_plain TEXT,
+    message_id TEXT, in_reply_to TEXT, referenzen TEXT, stabile_mail_kennung TEXT,
+    gesendet_von_nutzer_id TEXT, empfangen_at TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE email_anhang (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, nachricht_id TEXT NOT NULL, dateiname TEXT NOT NULL,
+    objektpfad TEXT NOT NULL, content_type TEXT NOT NULL, groesse_bytes INTEGER NOT NULL,
+    verarbeitet BOOLEAN NOT NULL DEFAULT 1, fehler_text TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
 """
 
 
