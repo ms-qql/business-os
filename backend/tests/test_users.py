@@ -25,10 +25,40 @@ def test_owner_invites_user(client, mandant):
     assert r.json()["role"] == "Monteur"
 
 
-def test_non_owner_cannot_list_users(client, mandant):
-    tok = _login(client, mandant, "buero@shk.de", "Buero")
+def test_monteur_cannot_list_users(client, mandant):
+    tok = _login(client, mandant, "monteur@shk.de", "Monteur")
     r = client.get("/users", headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 403
+
+
+def test_buero_can_list_users_but_not_invite_or_change(client, mandant):
+    # PROJ-3 BUG-1: Büro braucht GET /users, um Monteure für die Vorgangs-
+    # Zuweisung zu laden (POST /vorgaenge/{id}/zuweisungen ist für Büro
+    # bereits offen). Schreiboperationen bleiben Inhaber-only.
+    tok = _login(client, mandant, "buero@shk.de", "Buero")
+    monteur_id = make_user(mandant, "monteur@shk.de", "Monteur")
+    r = client.get("/users", headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200
+    assert any(u["id"] == monteur_id for u in r.json())
+
+    r2 = client.post("/users", headers={"Authorization": f"Bearer {tok}"},
+                     json={"name": "Neu", "email": "neu@shk.de", "role": "Monteur"})
+    assert r2.status_code == 403
+
+    r3 = client.patch(f"/users/{monteur_id}", headers={"Authorization": f"Bearer {tok}"},
+                      json={"status": "disabled"})
+    assert r3.status_code == 403
+
+
+def test_buero_sees_only_own_tenant_users(client):
+    a = make_mandant("A")
+    b = make_mandant("B")
+    tok_a = _login(client, a, "buero-a@shk.de", "Buero")
+    make_user(a, "monteur-a@shk.de", "Monteur")
+    make_user(b, "monteur-b@shk.de", "Monteur")
+    r = client.get("/users", headers={"Authorization": f"Bearer {tok_a}"})
+    emails = {u["email"] for u in r.json()}
+    assert emails == {"buero-a@shk.de", "monteur-a@shk.de"}
 
 
 def test_last_active_owner_cannot_be_disabled(client, mandant):

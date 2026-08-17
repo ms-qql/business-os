@@ -28,7 +28,23 @@ export const ROLLEN: Rolle[] = ["Inhaber", "Büro", "Monteur"];
 
 /** Sichtbarkeit von Navigationsbereichen je Rolle. */
 export const NAV_RECHTE: Record<Rolle, string[]> = {
-  Inhaber: ["startseite", "nutzerverwaltung", "website-einstellungen"],
-  Büro: ["startseite"],
-  Monteur: ["startseite"],
+  Inhaber: ["startseite", "kunden", "vorgaenge", "nutzerverwaltung", "website-einstellungen"],
+  Büro: ["startseite", "kunden", "vorgaenge"],
+  Monteur: ["startseite", "vorgaenge"],
 };
+
+/** Zulässige Vorgangs-Status (PROJ-3), Reihenfolge = Ablaufreihenfolge. */
+export const VORGANG_STATUS = [
+  "Neu",
+  "Rückruf",
+  "Angebot offen",
+  "Termin geplant",
+  "Erledigt",
+  "Abgeschlossen",
+] as const;
+export type VorgangStatus = (typeof VORGANG_STATUS)[number];
+
+/** Nur Büro und Inhaber legen/ändern Kunden, Objekte und Vorgänge (siehe Tech Design). */
+export function kannSchreiben(rolle: Rolle): boolean {
+  return rolle === "Büro" || rolle === "Inhaber";
+}
