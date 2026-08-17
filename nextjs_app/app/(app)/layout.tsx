@@ -8,6 +8,7 @@ import { useAuth } from "@/app/providers";
 import { getToken } from "@/lib/session";
 import { NAV_RECHTE } from "@/lib/theme/tokens";
 import type { Rolle } from "@/lib/theme/tokens";
+import packageJson from "../../package.json";
 
 const ICONS: Record<string, React.ReactNode> = {
   startseite: <LayoutDashboard size={18} />,
@@ -54,7 +55,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
       <aside className="flex w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        <div className="mb-6 px-2 text-lg font-semibold">Business OS</div>
+        <div className="mb-6 flex items-baseline gap-2 px-2 text-lg font-semibold">Business OS <span className="text-xs font-medium text-[var(--color-muted-foreground)]">v{packageJson.version}</span></div>
         <nav className="flex-1 space-y-1">
           {sichtbare.map((key) => (
             <Link
