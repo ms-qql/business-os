@@ -38,7 +38,7 @@ class PostgresEngine(BaseEngine):
         try:
             conn.execute("BEGIN")
             if mandant_id:
-                conn.execute("SET LOCAL app.current_mandant_id = %s", (mandant_id,))
+                conn.execute("SELECT set_config('app.current_mandant_id', %s, true)", (mandant_id,))
             cur = conn.execute(sql, params)
             cols = [c.name for c in cur.description]
             rows = [dict(zip(cols, r)) for r in cur.fetchall()]
@@ -56,7 +56,7 @@ class PostgresEngine(BaseEngine):
         try:
             conn.execute("BEGIN")
             if mandant_id:
-                conn.execute("SET LOCAL app.current_mandant_id = %s", (mandant_id,))
+                conn.execute("SELECT set_config('app.current_mandant_id', %s, true)", (mandant_id,))
             cur = conn.execute(sql, params)
             conn.commit()
             return cur.rowcount
