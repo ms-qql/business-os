@@ -37,7 +37,90 @@
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+**Erstellt:** 2026-08-17 · **Stack:** Next.js 16 (App Router, Tailwind, shadcn/ui) + FastAPI + Postgres (RLS) + MinIO · **Branch:** specs/PROJ-4-email-inbox-und-vorgangskommunikation
+
+### A) Komponentenstruktur (Next.js)
+```
+VorgangDetailPage
+└── VorgangDetail (nextjs_app/components/vorgaenge/vorgang-detail.tsx)
+    ├── VorgangChronik            (bestehend)
+    ├── VorgangDokumente          (bestehend)
+    └── VorgangEmail              (neu, nach Dokumente eingehängt)
+        ├── EmailThread           (Liste gesendet/empfangen, Anhang-Chips)
+        ├── EmailComposer         (nur sichtbar wenn darfSchreiben)
+        └── PostfachWarnung       (Banner "E-Mail-Abruf fehlgeschlagen…")
+
+InboxPage
+├── PostfachWarnung
+├── InboxFilter (zugeordnet / nicht zugeordnet)
+├── EmailInboxListe
+└── EmailNachrichtDetail (Vorgang zuordnen oder neu anlegen)
+
+EinstellungenPage
+└── PostfachEinstellungen (neu)
+    ├── PostfachForm (IMAP/SMTP Host, Port, User, Passwort)
+    └── TestVerbindungButton (Empfang + Versand vor Speichern testen; nur Inhaber)
+```
+
+### B) Datenmodell (Klartext)
+- **email_konto** (ein aktives Konto pro Mandant, mandant-scoped, RLS wie bestehende Tabellen): IMAP/SMTP Host, Port, Benutzername, Passwort (verschlüsselt), TLS-Flag, `letzter_abruf_status` (ok/fehler), `letzter_abruf_fehler_text`, `letzter_abruf_at`.
+- **email_thread**: mandant-scoped, mit optionalem `vorgang_id` und `kunde_id`. Neue, noch nicht sicher zuordenbare E-Mails bleiben damit sichtbar in der Inbox, ohne einem Vorgang zugeordnet zu sein.
+- **email_nachricht**: gehört zu einem Thread, Richtung (eingehend/ausgehend), Absender, Empfänger, Betreff, Text (bereinigtes HTML + Plaintext), `message_id`/`in_reply_to`/`references` (RFC-Header für Thread-Zuordnung), `stabile_mail_kennung` (Unique-Constraint pro Mandant gegen doppeltes Abholen), Zeitstempel, sendender Nutzer (bei ausgehend).
+- **email_anhang**: gehört zu `email_nachricht`, gleiches Muster wie Vorgangs-Dokumente — `object_key` in MinIO (`email/{mandant_id}/{thread_id}/{uuid4()}.{ext}`), Dateiname, Content-Type (per Magic Bytes gesnifft, nie Client-Angabe vertraut), Größe.
+- Historie: jede Zustellung/jeder Versand erzeugt einen `add_historie`-Eintrag (`email_empfangen` / `email_gesendet`), gleiches Muster wie bestehende Vorgangs-Events.
+
+### C) API-Shape (nur Endpunkte, kein Code)
+```
+- GET    /email-konto              → aktuelle Postfach-Konfiguration des Mandanten (ohne Passwort im Klartext)
+- PUT    /email-konto              → Postfach speichern/aktualisieren (nur Inhaber)
+- POST   /email-konto/test         → Empfang + Versand testen, ohne zu speichern
+- GET    /email/inbox              → paginierte Inbox, Filter und Verbindungsstatus
+- GET    /email/nachrichten/{id}   → Nachricht samt bereinigtem Inhalt und Anhängen
+- POST   /email/nachrichten/{id}/zuordnen → einem vorhandenen Vorgang zuordnen
+- POST   /email/nachrichten/{id}/vorgang → neuen Vorgang aus Nachricht anlegen
+- GET    /vorgaenge/{id}/emails    → Thread eines Vorgangs (nur Büro und Inhaber)
+- POST   /vorgaenge/{id}/emails    → E-Mail verfassen + senden (nur Inhaber, Büro)
+- GET    /vorgaenge/{id}/emails/{email_id}/anhaenge/{anhang_id}/download → presigned URL
+
+Alle Endpunkte: JWT Pflicht, mandant_id aus Token. Postfach konfigurieren/testen ist Inhaber-only; Zuordnen und Senden sind Büro/Inhaber. Monteure erhalten weder Inbox noch externe E-Mail-Inhalte.
+```
+
+### D) Tech-Entscheidungen (Begründung)
+- **Kein neuer Scheduler-Dependency:** Es existiert im Repo keinerlei Job-Queue/Scheduler (kein Celery/APScheduler). Ein Dokploy-Cron startet den internen Abruf periodisch. Das hält die Abruflogik von öffentlich erreichbaren Nutzer-APIs fern und passt zum bestehenden Request/Response-Stil.
+- **Zugangsdaten-Verschlüsselung:** neue, kleine Fernet-Verschlüsselung (symmetrisch) mit Schlüssel aus Server-Env (`EMAIL_CREDENTIALS_KEY`), analog zu den bereits vorhandenen Secrets in `config.py`. Kein KMS — für diesen Umfang ausreichend, DSGVO-Anforderung "verschlüsselt speichern" ist damit erfüllt.
+- **Thread-Zuordnung:** ausschließlich über `In-Reply-To`/`References` oder eine zuvor gespeicherte eindeutige externe Thread-Kennung. Ohne Treffer bleibt die Nachricht unzugeordnet in der Inbox; bekannte Absender lösen keine automatische Zuordnung zu einem alten Vorgang aus.
+- **Duplikaterkennung:** `stabile_mail_kennung` (Message-ID) als Unique-Constraint pro Mandant statt Zeitstempel-Heuristik — robust gegen erneuten Poll derselben Mail.
+- **HTML-Sanitizing:** eingehende HTML-Mails vor Anzeige serverseitig bereinigen (Allow-List Tags/Attribute), damit kein Script-/Tracking-Payload im Frontend landet.
+- **Anhänge:** gleiches MinIO-Muster wie Vorgangs-Dokumente (Content-Type-Sniffing, presigned Download) — aber mit eigenem Thread-Pfad und eigener Sicherheitsprüfung, weil die bestehende Dokumentfunktion nur Bilder und PDFs akzeptiert.
+
+### E) Abhängigkeiten (neue Pakete)
+- Backend: `imaplib`, `email` und `smtplib` aus der Python-Standardbibliothek; `cryptography` für Fernet-Verschlüsselung und `bleach` für HTML-Bereinigung.
+- Frontend: keine neuen Pakete — bestehende shadcn/ui-Komponenten (Card, Alert, Textarea, Button) reichen.
+
+## Architecture Review (abc-review-architecture)
+**Reviewed:** 2026-08-17 · **Verdict:** Architected
+
+### Checklist
+- [x] Component structure — `VorgangEmail` schließt an bestehendes Card-Muster in `vorgang-detail.tsx` an (Chronik/Dokumente als Vorbild), kein Konflikt.
+- [x] Data model — `mandant_id` auf allen drei neuen Tabellen (`email_konto`, `email_nachricht`, `email_anhang`), RLS-Muster wie bestehende Tabellen (mandant_id-first-arg-Konvention, `set_config` in `db.py`).
+- [x] API shape — jeder AC hat einen Endpoint: Verbinden+Testen → `PUT/POST /email-konto(/test)`; neuer/bestehender Vorgang → internes `POST /email-konto/poll`; Antwort schreiben/senden → `POST /vorgaenge/{id}/emails`; Warnbanner → `letzter_abruf_status` auf `GET /email-konto`; Rollen-Restriktion → `require_role("Buero","Inhaber")`.
+- [x] Tech decisions — jede Entscheidung (kein neuer Scheduler, Fernet-Verschlüsselung, Message-ID-Dedupe, Header-basierte Thread-Zuordnung, HTML-Sanitizing) mit Begründung versehen.
+- [x] Dependencies — stdlib bevorzugt (`imaplib`/`email`/`smtplib`), `cryptography` und HTML-Sanitizer als einzige echte Neuzugänge, klar benannt.
+- [x] Branch field — `specs/PROJ-4-email-inbox-und-vorgangskommunikation` (existiert bereits, aktiver Branch).
+- [x] Conflict-free — CodeGraph-Exploration fand keine bestehenden Routen/Tabellen zu E-Mail/Postfach; keine Namenskollision.
+- [x] Acceptance-criteria coverage — alle 6 AC auf mind. einen Endpoint/eine Komponente gemappt (siehe API-Shape/Komponentenbaum).
+
+### Owner-/Schreibpfad-Check (abc-coordinate Overlay)
+- `email_konto`: Owner/Schreiber = Inhaber, Büro über `PUT /email-konto`. Voraussetzungs-Lesepfad: `GET /email-konto` (bestehende Konfiguration vor Änderung sehen) — vorhanden.
+- `email_nachricht` (eingehend): Schreiber = interner Poll-Prozess (kein Nutzer-Endpoint), erzeugt über `POST /email-konto/poll`. Voraussetzung: `find_kunde_by_email`-Lookup (neue Repo-Funktion, analog `uebernehme_anfrage`-Muster) und Liste offener Vorgänge des gematchten Kunden — beides im Tech Design als Fallback-Pfad benannt.
+- `email_nachricht` (ausgehend): Schreiber = Büro/Inhaber über `POST /vorgaenge/{id}/emails`. Voraussetzungs-Lesepfad: `GET /vorgaenge/{id}` (Vorgang inkl. Kunde/Empfänger-Adresse) — bereits bestehender Endpoint, kein neuer Lesepfad nötig.
+- `email_anhang`: kein eigener Schreibpfad — entsteht mit der zugehörigen `email_nachricht` (Multipart bei eingehend, kein Attach-Feature beim Verfassen laut AC). Lesepfad: Download-Endpoint mit presigned URL, gleiches Muster wie `vorgaenge`-Dokumente.
+
+### Autonom behoben
+- Keine Lücken gefunden, die eine Spec-Änderung erforderten — Tech Design war bereits vollständig grundiert (Explore-Agent bestätigte Vorgang-/Kunden-/MinIO-/Rollen-Muster wie im Design angenommen).
+
+### Offene Fragen (falls Blocked)
+- Keine.
 
 ## QA Test Results
 _To be added by /qa_
