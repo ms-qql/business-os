@@ -28,7 +28,7 @@ export const ROLLEN: Rolle[] = ["Inhaber", "Büro", "Monteur"];
 
 /** Sichtbarkeit von Navigationsbereichen je Rolle. */
 export const NAV_RECHTE: Record<Rolle, string[]> = {
-  Inhaber: ["startseite", "nutzerverwaltung"],
+  Inhaber: ["startseite", "nutzerverwaltung", "website-einstellungen"],
   Büro: ["startseite"],
   Monteur: ["startseite"],
 };

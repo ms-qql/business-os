@@ -7,6 +7,7 @@ from app.errors import AppError
 from app.features.auth import auth_router
 from app.features.operator import admin_router, operator_router
 from app.features.users import users_router
+from app.features.website import public_router, settings_router
 
 
 app = FastAPI(title="business_os API", version="0.1.0")
@@ -21,6 +22,8 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(operator_router)
 app.include_router(admin_router)
+app.include_router(public_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")

@@ -18,6 +18,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@bizos-db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
     expose:
@@ -32,6 +33,7 @@ services:
       - bizos-backend
     environment:
       BACKEND_URL: http://bizos-backend:8000
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET}
       HOSTNAME: 0.0.0.0
     expose:
       - "3000"
