@@ -11,9 +11,11 @@ BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
 from app import db  # noqa: E402
+from app import storage  # noqa: E402
 from app.db import SqliteEngine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.security import hash_password  # noqa: E402
+from app.storage import InMemoryStorage  # noqa: E402
 
 SQLITE_SCHEMA = """
 CREATE TABLE mandanten (
@@ -51,6 +53,36 @@ CREATE TABLE betreiber_sitzungen (
     id TEXT PRIMARY KEY, betreiber_id TEXT NOT NULL, revoked BOOLEAN NOT NULL DEFAULT 0,
     expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE website_settings (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL UNIQUE, firmenname TEXT NOT NULL DEFAULT '',
+    logo_objektpfad TEXT, marken_farbe TEXT, telefon TEXT, email TEXT, adresse TEXT,
+    oeffnungszeiten TEXT, ueber_uns TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE website_domains (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, hostname TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'aktiv', created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE leistungsseite (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, slug TEXT NOT NULL, titel TEXT NOT NULL,
+    aktiv BOOLEAN NOT NULL DEFAULT 0, kurzbeschreibung TEXT NOT NULL DEFAULT '',
+    inhalt TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (mandant_id, slug)
+);
+CREATE TABLE anfrage (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, kontaktweg TEXT NOT NULL,
+    telefon TEXT, email TEXT, adresse TEXT NOT NULL, anliegen TEXT NOT NULL,
+    dringlichkeit TEXT NOT NULL, zeitfenster TEXT, quelle TEXT NOT NULL DEFAULT 'Website',
+    uebermittlungskennung TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (mandant_id, uebermittlungskennung)
+);
+CREATE TABLE anfragebild (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, anfrage_id TEXT, uebermittlungskennung TEXT NOT NULL,
+    objektpfad TEXT NOT NULL, dateiname TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE website_anfrage_versuche (
+    id TEXT PRIMARY KEY, ip TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
 """
 
 
@@ -61,6 +93,13 @@ def engine():
     db.set_engine(eng)
     yield eng
     db.set_engine(db.PostgresEngine(__import__("app.config", fromlist=["settings"]).settings.database_url))
+
+
+@pytest.fixture(autouse=True)
+def object_storage():
+    storage.set_storage(InMemoryStorage())
+    yield
+    storage.set_storage(storage.MinioStorage())
 
 
 def _iso():
@@ -90,6 +129,13 @@ def make_user(mandant_id: str, email: str, role: str, password: str | None = "st
          role, status),
     )
     return uid
+
+
+def make_domain(mandant_id: str, hostname: str, status: str = "aktiv") -> None:
+    db.engine.command(
+        "INSERT INTO website_domains (id, mandant_id, hostname, status) VALUES (%s, %s, %s, %s)",
+        (str(uuid.uuid4()), mandant_id, hostname, status),
+    )
 
 
 def make_betreiber(email: str = "op@plattform.de", password: str = "op-passwort-123") -> None:

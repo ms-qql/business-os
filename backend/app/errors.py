@@ -36,3 +36,8 @@ class ConflictError(AppError):
 class ValidationError(AppError):
     status = 422
     message = "Ungültige Eingabe."
+
+
+class TooManyRequestsError(AppError):
+    status = 429
+    message = "Zu viele Anfragen. Bitte versuchen Sie es später erneut."

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, LayoutDashboard, Users } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Globe } from "lucide-react";
 import { useAuth } from "@/app/providers";
 import { getToken } from "@/lib/session";
 import { NAV_RECHTE } from "@/lib/theme/tokens";
@@ -13,16 +13,19 @@ import packageJson from "../../package.json";
 const ICONS: Record<string, React.ReactNode> = {
   startseite: <LayoutDashboard size={18} />,
   nutzerverwaltung: <Users size={18} />,
+  "website-einstellungen": <Globe size={18} />,
 };
 
 const LABELS: Record<string, string> = {
   startseite: "Startseite",
   nutzerverwaltung: "Nutzerverwaltung",
+  "website-einstellungen": "Website-Einstellungen",
 };
 
 const PATHS: Record<string, string> = {
   startseite: "/startseite",
   nutzerverwaltung: "/nutzerverwaltung",
+  "website-einstellungen": "/website-einstellungen",
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -55,7 +58,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
       <aside className="flex w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-        <div className="mb-6 flex items-baseline gap-2 px-2 text-lg font-semibold">Business OS <span className="text-xs font-medium text-[var(--color-muted-foreground)]">v{packageJson.version}</span></div>
+        <div className="mb-6 flex items-baseline gap-2 px-2 text-lg font-semibold">
+          Business OS
+          <span className="text-xs font-medium text-[var(--color-muted-foreground)]">
+            v{packageJson.version}
+          </span>
+        </div>
         <nav className="flex-1 space-y-1">
           {sichtbare.map((key) => (
             <Link
