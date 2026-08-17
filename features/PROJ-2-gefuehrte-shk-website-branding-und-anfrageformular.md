@@ -1,6 +1,6 @@
 # PROJ-2: Geführte SHK-Website, Branding und Anfrageformular
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -359,4 +359,7 @@ Grund: SEC-1 (Critical) — die dokumentierte Sicherheitsannahme „Domain als a
 SEC-1 (Critical) und BUG-1 (Medium) sind unabhängig verifiziert behoben, keine Regression in 37 Backend-Tests, `tsc`/`next build` grün, alle 6 Akzeptanzkriterien PASS. Status wird auf **Approved** gesetzt. BUG-2 (Low) kann nachgelagert behoben werden und blockiert den Deploy nicht.
 
 ## Deployment
-_To be added by /deploy_
+Production URL: https://business-os.dokploy-host (Domain in Dokploy konfiguriert, sync automatisch mit GitHub-Repo).
+Deployed: 2026-08-17 · Version: 0.1.1 · Host: Dokploy (Compose, Auto-Deploy via GitHub-Push auf `main`).
+Ausgeliefert: geführte SHK-Website (Startseite, Leistungsseiten, Anfrageformular mit Bild-Upload, Impressum/Datenschutz), Website-Einstellungen für Inhaber, Domain-basierte Mandantenauflösung mit Proxy-Secret-Schutz (SEC-1-Fix).
+Smoke-Test auf der Produktions-Domain steht noch aus (kein Browser-Zugriff in dieser Session) — bitte nach Auto-Deploy manuell verifizieren: Startseite lädt, Anfrageformular sendet erfolgreich, Website-Einstellungen als Inhaber erreichbar, `/api/health` antwortet.
