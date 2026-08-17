@@ -73,7 +73,7 @@ CREATE TABLE anfrage (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, kontaktweg TEXT NOT NULL,
     telefon TEXT, email TEXT, adresse TEXT NOT NULL, anliegen TEXT NOT NULL,
     dringlichkeit TEXT NOT NULL, zeitfenster TEXT, quelle TEXT NOT NULL DEFAULT 'Website',
-    uebermittlungskennung TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT 'now',
+    uebermittlungskennung TEXT NOT NULL, vorgang_id TEXT, created_at TEXT NOT NULL DEFAULT 'now',
     UNIQUE (mandant_id, uebermittlungskennung)
 );
 CREATE TABLE anfragebild (
@@ -82,6 +82,29 @@ CREATE TABLE anfragebild (
 );
 CREATE TABLE website_anfrage_versuche (
     id TEXT PRIMARY KEY, ip TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE kunde (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT, telefon TEXT,
+    notiz TEXT, created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE objekt (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, kunde_id TEXT NOT NULL, adresse TEXT NOT NULL,
+    notiz TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE vorgang (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, kunde_id TEXT NOT NULL, objekt_id TEXT,
+    status TEXT NOT NULL DEFAULT 'Neu', quelle TEXT NOT NULL DEFAULT 'Sonstiges',
+    anliegen TEXT NOT NULL, notizen TEXT, zugewiesener_nutzer_id TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE vorgang_historie (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL, ereignis TEXT NOT NULL,
+    detail TEXT, nutzer_id TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE vorgang_dokument (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL, dateiname TEXT NOT NULL,
+    objektpfad TEXT NOT NULL, content_type TEXT NOT NULL, groesse_bytes INTEGER NOT NULL,
+    hochgeladen_von TEXT, created_at TEXT NOT NULL DEFAULT 'now'
 );
 """
 

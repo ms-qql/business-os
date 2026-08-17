@@ -17,7 +17,7 @@ def _client_ip(request: Request) -> str | None:
 
 
 @router.get("", response_model=list[schemas.UserRead])
-def list_users(limit: int = 50, user: CurrentUser = Depends(require_role("Inhaber"))):
+def list_users(limit: int = 50, user: CurrentUser = Depends(require_role("Buero", "Inhaber"))):
     return [schemas.UserRead(**u) for u in users_service.list_users(user.mandant_id, limit)]
 
 
