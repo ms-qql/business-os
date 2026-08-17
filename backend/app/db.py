@@ -41,7 +41,10 @@ class PostgresEngine(BaseEngine):
                 conn.execute("SELECT set_config('app.current_mandant_id', %s::text, true)", (mandant_id,))
             cur = conn.execute(sql, params)
             cols = [c.name for c in cur.description]
-            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+            rows = [
+                dict(zip(cols, (str(value) if isinstance(value, uuid.UUID) else value for value in row)))
+                for row in cur.fetchall()
+            ]
             conn.commit()
             return rows
         except Exception:
