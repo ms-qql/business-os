@@ -46,7 +46,7 @@ def get_current_user(authorization: str | None = Header(default=None)) -> Curren
     session = auth_repo.get_session(session_id)
     if not session or session["revoked"]:
         raise AuthError("Sitzung beendet.")
-    exp = datetime.datetime.fromisoformat(session["expires_at"])
+    exp = datetime.datetime.fromisoformat(str(session["expires_at"]))
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=datetime.timezone.utc)
     if exp < datetime.datetime.now(datetime.timezone.utc):

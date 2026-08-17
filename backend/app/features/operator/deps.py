@@ -29,7 +29,7 @@ def get_current_operator(authorization: str | None = Header(default=None)) -> Cu
     session = op_repo.get_betreiber_session(session_id) if session_id else None
     if not session or session["revoked"]:
         raise AuthError("Sitzung beendet.")
-    exp = datetime.datetime.fromisoformat(session["expires_at"])
+    exp = datetime.datetime.fromisoformat(str(session["expires_at"]))
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=datetime.timezone.utc)
     if exp < datetime.datetime.now(datetime.timezone.utc):

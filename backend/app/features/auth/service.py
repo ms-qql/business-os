@@ -10,7 +10,7 @@ from app.features.auth import repository as repo
 
 
 def _expired(iso: str) -> bool:
-    exp = datetime.datetime.fromisoformat(iso)
+    exp = datetime.datetime.fromisoformat(str(iso))
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=datetime.timezone.utc)
     return exp < datetime.datetime.now(datetime.timezone.utc)

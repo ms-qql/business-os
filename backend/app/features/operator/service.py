@@ -11,7 +11,7 @@ from app.config import settings
 
 
 def _expired(iso: str) -> bool:
-    exp = datetime.datetime.fromisoformat(iso)
+    exp = datetime.datetime.fromisoformat(str(iso))
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=datetime.timezone.utc)
     return exp < datetime.datetime.now(datetime.timezone.utc)
