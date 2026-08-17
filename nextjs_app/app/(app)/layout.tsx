@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox } from "lucide-react";
 import { useAuth } from "@/app/providers";
 import { getToken } from "@/lib/session";
 import { NAV_RECHTE } from "@/lib/theme/tokens";
@@ -14,24 +14,30 @@ const ICONS: Record<string, React.ReactNode> = {
   startseite: <LayoutDashboard size={18} />,
   kunden: <Contact size={18} />,
   vorgaenge: <ClipboardList size={18} />,
+  postfach: <Inbox size={18} />,
   nutzerverwaltung: <Users size={18} />,
   "website-einstellungen": <Globe size={18} />,
+  "postfach-einstellungen": <Settings2 size={18} />,
 };
 
 const LABELS: Record<string, string> = {
   startseite: "Startseite",
   kunden: "Kunden",
   vorgaenge: "Vorgänge",
+  postfach: "Postfach",
   nutzerverwaltung: "Nutzerverwaltung",
   "website-einstellungen": "Website-Einstellungen",
+  "postfach-einstellungen": "Postfach-Einstellungen",
 };
 
 const PATHS: Record<string, string> = {
   startseite: "/startseite",
   kunden: "/kunden",
   vorgaenge: "/vorgaenge",
+  postfach: "/email/inbox",
   nutzerverwaltung: "/nutzerverwaltung",
   "website-einstellungen": "/website-einstellungen",
+  "postfach-einstellungen": "/einstellungen/postfach",
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

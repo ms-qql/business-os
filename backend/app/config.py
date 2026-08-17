@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import os
 from dataclasses import dataclass
 
@@ -30,6 +31,13 @@ class Settings:
     # Secret im Request-Header mitgeschickt wird, ist X-Forwarded-Host vertrauenswürdig
     # (siehe SEC-1: der Header ist sonst clientseitig spoofbar).
     internal_proxy_secret: str = os.environ.get("INTERNAL_PROXY_SECRET", "")
+    # Fernet-Schlüssel (44 Zeichen base64) zum Verschlüsseln der Postfach-Zugangsdaten.
+    # Dev-Fallback: deterministischer 32-Byte-Key, damit lokale Tests ohne Env laufen;
+    # in Produktion zwingend über EMAIL_CREDENTIALS_KEY setzen.
+    email_credentials_key: str = os.environ.get(
+        "EMAIL_CREDENTIALS_KEY",
+        base64.urlsafe_b64encode(b"0123456789abcdef0123456789abcdef").decode(),
+    )
 
 
 settings = Settings()
