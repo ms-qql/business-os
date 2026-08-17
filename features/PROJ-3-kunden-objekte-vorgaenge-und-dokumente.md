@@ -1,6 +1,6 @@
 # PROJ-3: Kunden, Objekte, Vorgänge und Dokumente
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -377,4 +377,7 @@ Zusätzlich vom Backend-Dev bereits mitgelieferte, eigens gegengelesene Tests be
 **Finaler Status: Kein Critical/High-Bug mehr offen → Approved.**
 
 ## Deployment
-_To be added by /deploy_
+Production URL: https://biz.app.msce.info (Domain in Dokploy konfiguriert, sync automatisch mit GitHub-Repo, Auto-Deploy via Push auf `main`).
+Deployed: 2026-08-17 · Version: 0.1.2 · Host: Dokploy (Compose).
+Ausgeliefert: Kunden-/Objekt-/Vorgangsverwaltung (Liste, Detail, Statusfilter, Pagination), Dokument-Upload/-Download (Foto/PDF, presigned URLs), Vorgangs-Chronik, Rollen-abhängige UI/Rechte (Monteur nur zugewiesener Vorgang, keine Kundendaten), Löschsperre für Kunden mit bestehenden Vorgängen; BUG-1-Fix (`GET /users` für Büro geöffnet, Monteur-Zuweisung im Vorgangsdetail funktionsfähig).
+Smoke-Test auf der Produktions-Domain steht noch aus (kein Browser-Zugriff in dieser Session) — bitte nach Auto-Deploy manuell verifizieren: `/api/health` antwortet, Kunden-/Vorgangsliste lädt, neuer Kunde/Vorgang anlegbar, Dokument-Upload/-Download funktioniert, Monteur-Login sieht nur zugewiesenen Vorgang ohne Kundendaten.
