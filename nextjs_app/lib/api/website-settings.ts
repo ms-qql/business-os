@@ -23,7 +23,7 @@ export interface WebsiteSettings {
 }
 
 export type WebsiteSettingsPatch = Partial<
-  Omit<WebsiteSettings, "domain" | "domain_status" | "logo_url">
+  Omit<WebsiteSettings, "domain_status" | "logo_url">
 >;
 
 /** Nur für angemeldete Inhaber — Backend erzwingt require_role("Inhaber"). */

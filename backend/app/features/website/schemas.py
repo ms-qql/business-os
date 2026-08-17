@@ -67,6 +67,7 @@ class WebsiteSettingsPatch(BaseModel):
     adresse: Optional[str] = None
     oeffnungszeiten: Optional[str] = None
     ueber_uns: Optional[str] = None
+    domain: Optional[str] = None
     leistungen: Optional[list[LeistungPatch]] = None
 
 

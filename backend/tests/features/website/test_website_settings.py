@@ -59,6 +59,40 @@ def test_settings_domain_shown_from_website_domains(client, mandant):
     assert r.json()["domain_status"] == "aktiv"
 
 
+def test_owner_sets_domain(client, mandant):
+    tok = _login(client, mandant, "inh@shk.de", "Inhaber")
+    r = client.patch(
+        "/website-settings", headers={"Authorization": f"Bearer {tok}"},
+        json={"domain": "  ShK-Mueller.de  "},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["domain"] == "shk-mueller.de"
+    assert r.json()["domain_status"] == "aktiv"
+
+    site = client.get("/public/site", headers={"host": "shk-mueller.de"})
+    assert site.status_code == 200, site.text
+
+
+def test_domain_collision_with_other_tenant_rejected(client, mandant):
+    other = make_mandant("Andere Firma")
+    make_domain(other, "shk-mueller.de")
+    tok = _login(client, mandant, "inh@shk.de", "Inhaber")
+    r = client.patch(
+        "/website-settings", headers={"Authorization": f"Bearer {tok}"},
+        json={"domain": "shk-mueller.de"},
+    )
+    assert r.status_code == 409, r.text
+
+
+def test_domain_invalid_format_rejected(client, mandant):
+    tok = _login(client, mandant, "inh@shk.de", "Inhaber")
+    r = client.patch(
+        "/website-settings", headers={"Authorization": f"Bearer {tok}"},
+        json={"domain": "https://not a hostname/"},
+    )
+    assert r.status_code == 422, r.text
+
+
 def test_owner_cannot_see_other_tenant_settings(client):
     a = make_mandant("A")
     b = make_mandant("B")

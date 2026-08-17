@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 import uuid
 
 from app.config import settings
-from app.errors import NotFoundError, TooManyRequestsError, ValidationError
+from app.errors import ConflictError, NotFoundError, TooManyRequestsError, ValidationError
 from app.features.website import repository as repo
 from app.features.website.schemas import AnfrageCreate, LeistungPatch
 from app import storage as storage_mod
@@ -20,6 +21,20 @@ SEED_LEISTUNGEN: list[tuple[str, str]] = [
 MAX_UPLOADS = repo.MAX_UPLOADS_PER_ANFRAGE
 MAX_BILD_BYTES = 8 * 1024 * 1024
 MAX_LOGO_BYTES = 5 * 1024 * 1024
+
+HOSTNAME_RE = re.compile(
+    r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
+)
+
+
+def _validate_hostname(raw: str) -> str:
+    hostname = raw.strip().lower()
+    if not HOSTNAME_RE.match(hostname):
+        raise ValidationError(
+            "Ungültige Domain. Bitte nur den Hostnamen angeben (z. B. beispiel.de), "
+            "ohne https:// oder Pfad."
+        )
+    return hostname
 
 
 def _sniff_image_ext(data: bytes) -> str | None:
@@ -160,11 +175,19 @@ def get_website_settings(mandant_id: str) -> dict:
 def update_website_settings(mandant_id: str, firmenname: str | None, marken_farbe: str | None,
                             telefon: str | None, email: str | None, adresse: str | None,
                             oeffnungszeiten: str | None, ueber_uns: str | None,
-                            leistungen: list[LeistungPatch] | None) -> dict:
+                            leistungen: list[LeistungPatch] | None,
+                            domain: str | None = None) -> dict:
     _get_or_create_settings(mandant_id)
 
     if firmenname is not None and not firmenname.strip():
         raise ValidationError("Firmenname darf nicht leer sein.")
+
+    if domain is not None and domain.strip():
+        hostname = _validate_hostname(domain)
+        owner = repo.find_mandant_id_by_hostname(hostname)
+        if owner and owner != mandant_id:
+            raise ConflictError("Diese Domain ist bereits vergeben.")
+        repo.upsert_domain(mandant_id, hostname)
 
     fields = {}
     for name, value in (

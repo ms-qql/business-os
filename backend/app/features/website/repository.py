@@ -39,6 +39,28 @@ def get_domain(mandant_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def upsert_domain(mandant_id: str, hostname: str) -> None:
+    """Setzt die (einzige) öffentliche Domain des Mandanten. Kollisions-Check
+    gegen fremde Mandanten übernimmt der Service via find_mandant_id_by_hostname
+    (SECURITY DEFINER, umgeht RLS gezielt). Race zwischen Check und Insert ist
+    hier bewusst nicht abgesichert (ponytail: seltenes Wettrennen bei
+    gleichzeitiger Erstanmeldung zweier Mandanten auf denselben Hostnamen —
+    DB-UNIQUE auf hostname verhindert Dubletten, würde dann als 500 statt 409
+    auffallen; Vorab-Lock/Retry nachrüsten, falls das in der Praxis auftritt)."""
+    existing = get_domain(mandant_id)
+    if existing:
+        db.engine.command(
+            "UPDATE website_domains SET hostname = %s, status = 'aktiv' WHERE mandant_id = %s",
+            (hostname, mandant_id), mandant_id=mandant_id,
+        )
+    else:
+        db.engine.command(
+            "INSERT INTO website_domains (id, mandant_id, hostname, status) "
+            "VALUES (%s, %s, %s, 'aktiv')",
+            (str(uuid.uuid4()), mandant_id, hostname), mandant_id=mandant_id,
+        )
+
+
 # --- Website-Einstellungen ---------------------------------------------
 
 def get_settings(mandant_id: str) -> dict | None:
