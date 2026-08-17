@@ -363,3 +363,14 @@ Production URL: https://business-os.dokploy-host (Domain in Dokploy konfiguriert
 Deployed: 2026-08-17 · Version: 0.1.1 · Host: Dokploy (Compose, Auto-Deploy via GitHub-Push auf `main`).
 Ausgeliefert: geführte SHK-Website (Startseite, Leistungsseiten, Anfrageformular mit Bild-Upload, Impressum/Datenschutz), Website-Einstellungen für Inhaber, Domain-basierte Mandantenauflösung mit Proxy-Secret-Schutz (SEC-1-Fix).
 Smoke-Test auf der Produktions-Domain steht noch aus (kein Browser-Zugriff in dieser Session) — bitte nach Auto-Deploy manuell verifizieren: Startseite lädt, Anfrageformular sendet erfolgreich, Website-Einstellungen als Inhaber erreichbar, `/api/health` antwortet.
+
+## Nachtrag: Domain-Self-Service (2026-08-17)
+Lücke: `website_domains` hatte keinen Schreibpfad — die Domain war in Website-Einstellungen nur lesbar (`domain`/`domain_status`), der Inhaber konnte sie nie selbst setzen.
+
+Gebaut:
+- Backend: `WebsiteSettingsPatch.domain` (neu, optional). `service.update_website_settings` validiert den Hostnamen (trim/lowercase/Regex, kein Protokoll/Pfad), prüft per `repository.find_mandant_id_by_hostname` auf Kollision mit einem fremden Mandanten (→ 409 „Diese Domain ist bereits vergeben.“) und schreibt via neuer `repository.upsert_domain` (Update falls schon eine Domain existiert, sonst Insert; `status = 'aktiv'`).
+- Kein neues DB-Constraint/keine Migration nötig: die bestehende SECURITY-DEFINER-Funktion `website_find_mandant_by_hostname` (aus `002_website.sql`) reicht für den Kollisions-Check, RLS-Scoping pro Mandant übernimmt weiterhin die vorhandene `mandant_id`-Spalte. Bewusste Vereinfachung (ponytail-Kommentar in `repository.py`): kein Lock zwischen Kollisionsprüfung und Schreiben — bei echtem Gleichzeitigkeits-Wettrennen zweier Mandanten auf denselben Hostnamen fängt der bestehende `UNIQUE`-Constraint auf `hostname` Dubletten weiterhin ab, würde dann aber als 500 statt 409 auffallen. Nachrüsten, falls das in der Praxis auftritt.
+- Frontend: Das bisherige Nur-Lese-Feld in `website-einstellungen/page.tsx` wurde durch ein Eingabefeld „Öffentliche Domain“ ersetzt (vorausgefüllt, Platzhalter `beispiel.de`, deutscher Hilfetext zu DNS), wird beim normalen Speichern mit übermittelt.
+- Tests: 3 neue Backend-Tests (`test_owner_sets_domain`, `test_domain_collision_with_other_tenant_rejected`, `test_domain_invalid_format_rejected`) — alle grün, `pytest backend/tests -q` → 40 grün (keine Regression). `tsc --noEmit` + `next build` grün.
+
+Die Test-Domain `bizos-web.app.msce.info` konnte NICHT direkt in der Produktions-DB gesetzt werden — von dieser Session aus ist nur der interne Docker-Hostname `bizos-db` erreichbar (kein `.env`/`DATABASE_URL` mit externem Zugriff im Repo hinterlegt). Der Nutzer muss die Domain einmalig selbst über das neue Feld in Website-Einstellungen eintragen und speichern (Login als Inhaber → Website-Einstellungen → Feld „Öffentliche Domain“ → `bizos-web.app.msce.info` → Speichern).

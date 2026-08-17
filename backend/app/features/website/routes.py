@@ -77,7 +77,7 @@ def patch_settings(payload: schemas.WebsiteSettingsPatch,
     return website_service.update_website_settings(
         user.mandant_id, payload.firmenname, payload.marken_farbe, payload.telefon,
         payload.email, payload.adresse, payload.oeffnungszeiten, payload.ueber_uns,
-        payload.leistungen,
+        payload.leistungen, payload.domain,
     )
 
 

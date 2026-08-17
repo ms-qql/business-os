@@ -56,6 +56,7 @@ export default function WebsiteEinstellungenPage() {
         adresse: settings.adresse,
         oeffnungszeiten: settings.oeffnungszeiten,
         ueber_uns: settings.ueber_uns,
+        domain: settings.domain,
       });
       setSettings(aktualisiert);
       setInfo("Einstellungen gespeichert.");
@@ -135,12 +136,26 @@ export default function WebsiteEinstellungenPage() {
           <CardTitle>Branding und Kontakt</CardTitle>
           {settings.domain && (
             <CardDescription>
-              Domain: {settings.domain} · Status: {settings.domain_status ?? "unbekannt"}
+              Aktueller Status: {settings.domain_status ?? "unbekannt"}
             </CardDescription>
           )}
         </CardHeader>
         <CardContent>
           <form onSubmit={onSave} className="space-y-4">
+            <div>
+              <Label htmlFor="domain">Öffentliche Domain</Label>
+              <Input
+                id="domain"
+                value={settings.domain ?? ""}
+                onChange={(e) => feld("domain", e.target.value)}
+                placeholder="beispiel.de"
+              />
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                DNS muss extern auf diesen Server zeigen. Nach dem Speichern ist die Website
+                sofort unter dieser Domain erreichbar.
+              </p>
+            </div>
+
             <div className="flex items-center gap-4">
               {settings.logo_url && (
                 // eslint-disable-next-line @next/next/no-img-element
