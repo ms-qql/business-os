@@ -34,6 +34,7 @@ services:
     environment:
       BACKEND_URL: http://bizos-backend:8000
       INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET}
+      APP_HOST: ${APP_HOST}
       HOSTNAME: 0.0.0.0
     expose:
       - "3000"
