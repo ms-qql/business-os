@@ -42,8 +42,8 @@ export default function NutzerverwaltungPage() {
     setError(null);
     setInfo(null);
     try {
-      const res = await inviteNutzer({ name, email, rolle });
-      setInfo(res.detail);
+      await inviteNutzer({ name, email, rolle });
+      setInfo("Einladung versendet.");
       setName("");
       setEmail("");
       setRolle("Büro");

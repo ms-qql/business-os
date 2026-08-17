@@ -15,25 +15,48 @@ export interface NutzerEinladung {
   rolle: Rolle;
 }
 
+type ApiNutzer = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+};
+
+const apiRolle = (rolle: Rolle) => rolle === "Büro" ? "Buero" : rolle;
+
+function nutzer({ role, status, ...nutzer }: ApiNutzer): Nutzer {
+  return {
+    ...nutzer,
+    rolle: role === "Buero" ? "Büro" : role as Rolle,
+    aktiv: status === "active",
+  };
+}
+
 export async function listNutzer(): Promise<Nutzer[]> {
-  return apiFetch<Nutzer[]>("/users");
+  return (await apiFetch<ApiNutzer[]>("/users")).map(nutzer);
 }
 
 export async function inviteNutzer(
   payload: NutzerEinladung,
-): Promise<{ detail: string }> {
-  return apiFetch("/users", {
+): Promise<Nutzer> {
+  const { name, email, rolle } = payload;
+  return nutzer(await apiFetch<ApiNutzer>("/users", {
     method: "POST",
-    body: JSON.stringify(payload),
-  });
+    body: JSON.stringify({ name, email, role: apiRolle(rolle) }),
+  }));
 }
 
 export async function updateNutzer(
   id: string,
   patch: { rolle?: Rolle; aktiv?: boolean },
-): Promise<{ detail: string }> {
-  return apiFetch(`/users/${id}`, {
+): Promise<Nutzer> {
+  const { rolle, aktiv } = patch;
+  return nutzer(await apiFetch<ApiNutzer>(`/users/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+    body: JSON.stringify({
+      role: rolle === undefined ? undefined : apiRolle(rolle),
+      status: aktiv === undefined ? undefined : aktiv ? "active" : "disabled",
+    }),
+  }));
 }
