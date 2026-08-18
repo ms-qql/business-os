@@ -1,6 +1,6 @@
 # PROJ-6: Terminplanung und Teamzuweisung
 
-## Status: In Review (QA: 7/7 AC bestanden, BUG-1 gefixt+retestet)
+## Status: Approved (QA: 7/7 AC bestanden, BUG-1 gefixt+retestet)
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-18
 **Frontend-Stand:** 2026-08-18 — Next.js 16 + shadcn/ui, gebaut & typegeprüft. Backend implementiert (Migration `007_termine.sql`, Feature-Modul `backend/app/features/termine/`), Commit `fe1e046`.
