@@ -292,13 +292,25 @@ Typecheck + Lint: grün. Backend (`email`-Router + Migrationen) noch nicht vorha
 
 Backend-Scope: keine offenen Bugs, keine Regressionen. Frontend-Browser-Manuelltest bleibt für die Gesamt-Produktionsfreigabe offen (unverändert seit letztem Retest, nicht Teil dieses Backend-Laufs).
 
+### QA Test Results — E2E Smoke (2026-08-18)
+
+**Report:** `screenshots/20260818-075005/REPORT.md` · Chromium/Playwright gegen einen lokal via `docker compose` hochgefahrenen Stack (Backend `:18000`, Frontend `:13000` — Portmapping nur für diesen Testlauf).
+
+- [x] Login-Seite rendert fehlerfrei auf 375/768/1024/1440px, keine Console-Errors.
+- [x] Echter Login-Flow (Inhaber-Account) funktioniert End-to-End.
+- [x] `PostfachEinstellungen` rendert das IMAP/SMTP-Formular; BUG-1-Fix live bestätigt (`imap_tls`/`smtp_tls` getrennt, Update ohne Passwort → kein 422, bestehendes Passwort bleibt erhalten).
+- [x] `InboxPage` rendert; AC-5 live nachgestellt (Poll mit unauflösbarem Host → `letzter_abruf_status=fehler`) → Banner „E-Mail-Abruf fehlgeschlagen. Bitte Verbindung prüfen." erscheint exakt wie spezifiziert.
+- [x] API-Matrix: 401 ohne/mit ungültigem Token, 403 auf `/internal/email/poll` ohne Secret, 404 auf `GET /email-konto` vor erster Konfiguration (korrektes Verhalten, kein Bug).
+- **Limitation:** kein echter IMAP/SMTP-Server in dieser Umgebung verfügbar → AC-2 (E-Mail-Ablage), AC-3 (Senden), AC-4 (Thread-Zuordnung) und BUG-5 (Tracking-Pixel) nur über die bereits grüne, gemockte Backend-Testsuite abgedeckt, nicht live end-to-end gegen einen echten Mailserver.
+- Keine neuen Bugs gefunden.
+
 ### Finale Freigabe-Entscheidung
 
 **Entschieden:** 2026-08-18
 
 - Alle 5 gefundenen Bugs (BUG-1–BUG-5) gefixt und retestet, keine Regressionen (101/101 Backend-Tests, Frontend Jest/Typecheck/Build grün).
-- Browser-Manuelltest weiterhin nicht durchführbar in dieser Umgebung (kein Chrome/Chromium, kein laufender Business-OS-Stack) — unverändert seit letztem Retest, kein neuer Blocker.
-- Kein Critical/High-Bug offen → **Production Ready: YES** (Automatisierte Abdeckung + Security-Fixes verifiziert; manueller Browser-Smoke wird nachgeholt sobald ein laufender Stack verfügbar ist, z. B. via `/abc-qa-e2e` oder `/abc-launch-app`).
+- Browser-Smoke am 2026-08-18 nachgeholt (`/abc-qa-e2e`, siehe oben) — Login, Postfach-Einstellungen, Inbox und AC-5-Warnbanner live gegen einen lokalen Docker-Compose-Stack bestätigt, keine neuen Bugs.
+- Kein Critical/High-Bug offen → **Production Ready: YES** (Automatisierte Abdeckung + Security-Fixes + Browser-Smoke verifiziert; einzige verbleibende Lücke: kein echter IMAP/SMTP-Server in dieser Umgebung, dokumentiert als Limitation).
 
 **Status:** In Review → **Approved**.
 
