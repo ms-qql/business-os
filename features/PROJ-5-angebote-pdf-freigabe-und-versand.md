@@ -1,6 +1,6 @@
 # PROJ-5: Angebote, PDF, Freigabe und Versand
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -390,4 +390,7 @@ Alle vier gemeldeten Bugs sind durch unabhängigen Codeabgleich (Feldnamen 1:1, 
 **Status: Approved.**
 
 ## Deployment
-_To be added by /deploy_
+**Production URL:** https://biz.app.msce.info
+**Deployed:** 2026-08-18 · **Version:** 0.1.6
+**Was ausgeliefert:** Angebote mit Positionen (Menge, Einheit, Einzelpreis, Steuersatz, Rabatt wahlweise Prozent/Euro je Position), serverseitige PDF-Erzeugung, Freigabeansicht vor Versand (Empfänger/Betreff/PDF/Summe editierbar, expliziter Sende-Klick), unveränderliche Ablage nach Versand mit Statuswechsel „Angebot offen", Entwurf-Speichern ohne Auto-Versand, Angebots-Nummernkreis mit Locking, Versand über bestehende Postfach-Infrastruktur (PROJ-4).
+**Offen:** Browser-Smoke gegen den Live-Host (Step 9) manuell verifizieren; kein Docker-Stack in der QA-Session verfügbar.
