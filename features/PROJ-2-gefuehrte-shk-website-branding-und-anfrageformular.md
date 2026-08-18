@@ -22,6 +22,14 @@
 - [ ] Eine erfolgreiche Formularübermittlung erzeugt genau einen Vorgang im richtigen Mandanten und zeigt „Vielen Dank. Wir melden uns zeitnah bei Ihnen.“
 - [ ] Öffentliche Seiten sind mobil bedienbar und je Mandant nur über dessen Domain erreichbar.
 
+## Implementation Note — 2026-08-17
+
+Website-Anfragen werden nach dem Speichern sofort über den bestehenden
+Übernahmepfad als Vorgang angelegt; die Anfrage bleibt als nachvollziehbare
+Quelle mit `vorgang_id` verknüpft. Migration `005_website_anfragen_uebernehmen.sql`
+übernimmt noch nicht verknüpfte Altanfragen inklusive Bilder beim nächsten
+Backend-Start idempotent.
+
 ## Edge Cases
 - Ungültige oder zu große Dateien werden abgewiesen, ohne die bereits eingegebenen Formulardaten zu verlieren.
 - Ein unbekannter oder inaktiver Domainname zeigt keine Daten eines anderen Betriebs.

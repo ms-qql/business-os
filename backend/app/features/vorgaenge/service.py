@@ -173,45 +173,46 @@ def _ext_content_type(dateiname: str) -> str:
     return "application/octet-stream"
 
 
-def uebernehme_anfrage(user, anfrage_id: str, kunde_id: str | None) -> dict:
-    anfrage = repo.get_anfrage(user.mandant_id, anfrage_id)
+def uebernehme_anfrage(mandant_id: str, anfrage_id: str, kunde_id: str | None = None,
+                       nutzer_id: str | None = None) -> dict:
+    anfrage = repo.get_anfrage(mandant_id, anfrage_id)
     if not anfrage:
         raise NotFoundError("Anfrage nicht gefunden.")
     if anfrage["vorgang_id"]:
         raise ValidationError("Diese Anfrage wurde bereits übernommen.")
 
     if kunde_id:
-        kunde = kunden_repo.get_kunde(user.mandant_id, kunde_id)
+        kunde = kunden_repo.get_kunde(mandant_id, kunde_id)
         if not kunde:
             raise NotFoundError("Kunde nicht gefunden.")
     else:
         kunde = kunden_repo.create_kunde(
-            user.mandant_id, anfrage["name"], anfrage["email"], anfrage["telefon"], None,
+            mandant_id, anfrage["name"], anfrage["email"], anfrage["telefon"], None,
         )
         kunde_id = kunde["id"]
 
     objekt_id = None
     if anfrage["adresse"]:
-        objekt = kunden_repo.create_objekt(user.mandant_id, kunde_id, anfrage["adresse"], None)
+        objekt = kunden_repo.create_objekt(mandant_id, kunde_id, anfrage["adresse"], None)
         objekt_id = objekt["id"]
 
     notizen_teile = [f"Dringlichkeit: {anfrage['dringlichkeit']}"]
     if anfrage["zeitfenster"]:
         notizen_teile.append(f"Zeitfenster: {anfrage['zeitfenster']}")
     vorgang = repo.create_vorgang(
-        user.mandant_id, kunde_id, objekt_id, "Neu", anfrage["quelle"] or "Website",
+        mandant_id, kunde_id, objekt_id, "Neu", anfrage["quelle"] or "Website",
         anfrage["anliegen"], " | ".join(notizen_teile),
     )
-    repo.add_historie(user.mandant_id, vorgang["id"], "angelegt",
-                      f"Aus Anfrage übernommen ({anfrage_id})", user.id)
+    repo.add_historie(mandant_id, vorgang["id"], "angelegt",
+                      f"Aus Anfrage übernommen ({anfrage_id})", nutzer_id)
 
-    for bild in repo.list_anfragebilder(user.mandant_id, anfrage_id):
+    for bild in repo.list_anfragebilder(mandant_id, anfrage_id):
         dokument = repo.create_dokument(
-            user.mandant_id, vorgang["id"], bild["dateiname"], bild["objektpfad"],
+            mandant_id, vorgang["id"], bild["dateiname"], bild["objektpfad"],
             _ext_content_type(bild["dateiname"]), 0, None,
         )
-        repo.add_historie(user.mandant_id, vorgang["id"], "dokument_hochgeladen",
+        repo.add_historie(mandant_id, vorgang["id"], "dokument_hochgeladen",
                           f"Aus Anfrage übernommen: {dokument['dateiname']}", None)
 
-    repo.mark_anfrage_uebernommen(user.mandant_id, anfrage_id, vorgang["id"])
+    repo.mark_anfrage_uebernommen(mandant_id, anfrage_id, vorgang["id"])
     return {"vorgang_id": vorgang["id"], "kunde_id": kunde_id, "objekt_id": objekt_id}

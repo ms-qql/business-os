@@ -154,10 +154,15 @@ def test_upload_and_submit_links_bild_to_anfrage(client):
     )
     assert r.status_code == 201, r.text
     rows = db.engine.query(
-        "SELECT id FROM anfrage WHERE mandant_id = %s AND uebermittlungskennung = %s",
+        "SELECT id, vorgang_id FROM anfrage WHERE mandant_id = %s AND uebermittlungskennung = %s",
         (mandant, "abc-2"),
     )
     assert len(rows) == 1
+    assert rows[0]["vorgang_id"]
+    vorgaenge = db.engine.query(
+        "SELECT anliegen, quelle FROM vorgang WHERE id = %s", (rows[0]["vorgang_id"],)
+    )
+    assert vorgaenge == [{"anliegen": "Heizung defekt", "quelle": "Website"}]
     bild = db.engine.query("SELECT anfrage_id FROM anfragebild WHERE id = %s", (upload_id,))[0]
     assert bild["anfrage_id"] == rows[0]["id"]
 
@@ -194,6 +199,10 @@ def test_anfrage_same_kennung_is_idempotent(client):
         (mandant, "abc-4"),
     )
     assert len(rows) == 1
+    vorgaenge = db.engine.query(
+        "SELECT id FROM vorgang WHERE mandant_id = %s AND quelle = 'Website'", (mandant,)
+    )
+    assert len(vorgaenge) == 1
 
 
 def test_anfrage_wrong_mandant_domain_creates_in_correct_tenant(client):

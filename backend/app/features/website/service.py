@@ -7,6 +7,7 @@ from app.config import settings
 from app.errors import ConflictError, NotFoundError, TooManyRequestsError, ValidationError
 from app.features.website import repository as repo
 from app.features.website.schemas import AnfrageCreate, LeistungPatch
+from app.features.vorgaenge import service as vorgaenge_service
 from app import storage as storage_mod
 
 # Vordefinierter SHK-Leistungskatalog (fest laut Tech Design — kein Baukasten).
@@ -150,6 +151,7 @@ def submit_anfrage(hostname: str, ip: str | None, payload: AnfrageCreate) -> Non
         bilder = repo.get_unlinked_bilder(mandant_id, payload.uebermittlungskennung,
                                           payload.upload_ids)
         repo.link_bilder_to_anfrage(mandant_id, anfrage_id, [b["id"] for b in bilder])
+    vorgaenge_service.uebernehme_anfrage(mandant_id, anfrage_id)
 
 
 # --- Angemeldet (Inhaber) ----------------------------------------------

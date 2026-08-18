@@ -76,5 +76,7 @@ def delete_dokument(vorgang_id: str, dokument_id: str, user: CurrentUser = Depen
                       status_code=201)
 def uebernehme_anfrage(anfrage_id: str, payload: schemas.UebernahmeCreate,
                        user: CurrentUser = Depends(_write_roles)):
-    result = vorgaenge_service.uebernehme_anfrage(user, anfrage_id, payload.kunde_id)
+    result = vorgaenge_service.uebernehme_anfrage(
+        user.mandant_id, anfrage_id, payload.kunde_id, user.id,
+    )
     return schemas.UebernahmeResult(**result)
