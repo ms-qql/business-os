@@ -1,6 +1,6 @@
 # PROJ-6: Terminplanung und Teamzuweisung
 
-## Status: Approved
+## Status: Architected
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-18
 
@@ -57,7 +57,7 @@ PROJ-3 hat bereits ein minimales `vorgang.zugewiesener_nutzer_id` (eine Monteur-
 - PROJ-1/PROJ-3 liefern das RLS-Muster: jede Fachtabelle trägt `mandant_id` und ist auf `current_setting('app.current_mandant_id')` begrenzt; Wiederholung in `backend/sql/003_kunden_vorgaenge.sql`.
 - PROJ-3 liefert das Vorgang-Modell: Status-Enum inkl. „Termin geplant", das Feld `vorgang.zugewiesener_nutzer_id` (Vorgriff auf Vorgangsebene) und die `vorgang_historie` mit Ereignis-Codes (`status_geaendert`, `zugewiesen` usw.).
 - Der Migrations-Runner `backend/apply_migrations.py` wendet `backend/sql/00X_*.sql` idempotent an (IF NOT EXISTS) — neues SQL folgt exakt diesem Muster.
-- Router-Registration erfolgt zentral in `backend/app/main.py:25-36` via `app.include_router(...)`.
+- Router-Registration erfolgt zentral in `backend/app/main.py:25-36` via `app.include_router(...)`; der letzte registrierte Router ist `angebote_router` (Zeile 36) — `termine_router` reiht sich direkt danach ein, kein Umbau bestehender Zeilen nötig.
 - Die shadcn-Primitive `table`, `dialog`, `select`, `badge` existieren bereits unter `nextjs_app/components/ui/`; ein Kalender-Primitive existiert **nicht**.
 - Explore-Ergebnis: `grep -rn "termin"` über Backend + Frontend liefert null Treffer (außer Status-String) — PROJ-6 ist Greenfield, baut sauber auf obigen Mustern auf, keine Konflikte mit bestehenden Routen/Tabellen.
 
@@ -92,11 +92,12 @@ Termine (neuer Navigationspunkt „Termine", nur Inhaber/Büro sichtbar)
 
 ### API-Form (Endpunkte, keine Implementierung)
 - `GET /termine?von=&bis=&nutzer_ids=` → Termine des Mandanten im Kalenderfenster (Wochenansicht lädt nur den sichtbaren Zeitraum; `nutzer_ids` filtert auf ausgewählte Monteure bei >3).
-- `POST /termine` → Termin anlegen (Vorgang, Beginn, Ende, Adresse optional, Notiz, Monteure[]).
-- `GET /termine/{id}` → einen Termin mit seinen Zuweisungen lesen.
-- `PATCH /termine/{id}` → Termin ändern/verschieben; Antwort enthält bei Überschneidung `konflikt: true` mit Liste betroffener Monteure.
+- `POST /termine` → Termin anlegen (Vorgang, Beginn, Ende, Adresse optional, Notiz, Monteure[]). Validiert `ende > beginn` (sonst `422`, deckt AC-7) und dass `vorgang_id` einem Vorgang des eigenen Mandanten entspricht (sonst `422`, deckt AC-3).
+- `GET /termine/{id}` → einen Termin mit seinen Zuweisungen lesen; liefert zusätzlich Anliegen und die Kontaktfelder (Name, Telefon, E-Mail) des am Vorgang hängenden Kunden **eingebettet** (kein zweiter Client-Request nötig) — deckt AC-5 „Sichtbar sind Adresse, Kontakt, Anliegen". Preis-/Rechnungsfelder werden nie in dieses Schema aufgenommen.
+- `PATCH /termine/{id}` → Termin ändern/verschieben; validiert `ende > beginn` wie bei Anlage; Antwort enthält bei Überschneidung `konflikt: true` mit Liste betroffener Monteure.
 - `POST /termine/{id}/absagen` → Termin absagen (kein hartes Löschen; bleibt in Historie).
 - `POST /termine/{id}/zuweisungen` und `DELETE /termine/{id}/zuweisungen/{nutzer_id}` → Monteur zuweisen/entziehen.
+- `GET /nutzer/monteure` (neu, oder `GET /users?role=Monteur&status=active` als Query-Erweiterung — Implementierungsdetail für /abc-backend) → aktive Monteure des Mandanten für die Auswahl im Termin-Dialog. **Grund:** `backend/app/features/users/repository.py::list_users(mandant_id, limit)` filtert aktuell nicht nach Rolle/Status; ohne diesen Endpunkt kann der Termin-Dialog die Monteurliste nicht befüllen.
 - **Vorgangs-verknüpfte Liste (Nested-Route, wie PROJ-5 Angebote):** `GET /vorgaenge/{id}/termine` und `POST /vorgaenge/{id}/termine` — zeigen dieselben Daten wie `/termine`, Einstieg aber vom Vorgang aus (Termin-Sektion im Vorgangsdetail).
 - **Monteur-Sicht:** `GET /termine` liefert Monteuren serverseitig nur die eigenen Termine; schreibende Endpunkte sind mit `403` gesperrt.
 - Jeder Endpunkt liest den Mandanten aus der Sitzung; Schreibend (`POST/PATCH/DELETE`, Zuweisung) tragen `require_role("Büro","Inhaber")`.
@@ -123,6 +124,32 @@ Termine (neuer Navigationspunkt „Termine", nur Inhaber/Büro sichtbar)
 
 ### Abnahmebezug
 Alle AC-1…AC-7 sind durch Komponenten, Datenmodell und Endpunkte abgedeckt; insbesondere AC-4 (nicht-blockierende Konfliktwarnung über `konflikt`-Flag) und AC-6 (Status-Rücksetzung nur bei keinem offenen Resttermin, historisiert).
+
+## Architecture Review (abc-review-architecture)
+**Reviewed:** 2026-08-18 · **Verdict:** Architected
+
+### Checklist
+- [x] **Component structure** — jede UI-Komponente ist auf vorhandene shadcn-Primitive (`table.tsx`, `dialog.tsx`, `select.tsx`, `badge.tsx` — von CodeGraph-Explore bestätigt, alle vier existieren unter `nextjs_app/components/ui/`) oder eine klar umrissene Eigenkomposition (Kalenderraster max. 3 Spalten) gemappt. Keine vage UI-Beschreibung.
+- [x] **Data model** — jede Entität (`termin`, `termin_zuweisung`) trägt `mandant_id`; RLS-Ansatz explizit an das verifizierte PROJ-3-Muster verankert (`backend/sql/003_kunden_vorgaenge.sql`: `mandant_id UUID NOT NULL REFERENCES mandanten(id)` Z.10/24/33/53/66, `ENABLE ROW LEVEL SECURITY` Z.81-85, `CREATE POLICY x_isolation ... USING (mandant_id = current_setting('app.current_mandant_id')::uuid)`). Fehlende Statusquelle für AC-6 wurde in der vorherigen Design-Iteration bereits als `termin.vorheriger_vorgang_status` nachgezogen.
+- [x] **API shape** — jeder Endpunkt mit Methode+Pfad+Rollen-Guard benannt. Im Review ergänzt: explizite `422`-Validierungsregeln für AC-3 (Vorgang-Existenz im Mandanten) und AC-7 (`ende > beginn`) waren zuvor nur in den Acceptance Criteria genannt, jetzt auch in der API-Form verankert. AC-5 „Kontakt sichtbar" hatte keinen Datenpfad — jetzt geklärt: `GET /termine/{id}` liefert Kundenkontakt eingebettet, kein zweiter Client-Request.
+- [x] **Tech decisions** — jede Entscheidung mit Begründung (Kalender ohne externe Lib, Konfliktwarnung nicht-blockierend, Status-Snapshot-Feld, Zeitzone via `zoneinfo`, keine `$$`-Blöcke).
+- [x] **Dependencies** — CodeGraph-Explore bestätigt: kein Kalender-Package (date-fns/react-big-calendar/fullcalendar o.ä.) in `nextjs_app/package.json` vorhanden — „keine neuen Pakete" ist damit eine geprüfte Aussage, nicht nur eine Behauptung.
+- [x] **Branch field** — `specs/PROJ-6-terminplanung-und-teamzuweisung` vorhanden, Branch existiert bereits (aktueller Checkout, CodeGraph-Agent bestätigt `Already on ...`).
+- [x] **Conflict-free** — CodeGraph-Explore bestätigt: keine Tabelle `termin`, keine Route `/termine`, kein Verzeichnis `backend/app/features/termine/` existiert bisher. `vorgang.zugewiesener_nutzer_id` (`003_kunden_vorgaenge.sql:44`, `vorgaenge/schemas.py:40`) bleibt unangetastet, wie im Datenmodell-Hinweis dokumentiert.
+- [x] **Acceptance-criteria coverage** — AC-1 (Anlage/Absage) → Endpunkte `POST/PATCH/absagen`; AC-2 (Kalender max. 3) → Komponentenstruktur + `nutzer_ids`-Filter; AC-3 (Vorgangsbezug, 422) → FK + jetzt explizite Validierung; AC-4 (Konflikt) → `konflikt`-Flag; AC-5 (Monteursicht inkl. Kontakt) → serverseitiger Scope + jetzt eingebetteter Kundenkontakt; AC-6 (Status) → `vorheriger_vorgang_status`-Snapshot; AC-7 (Validierung/Zeitzone) → jetzt explizite `422`-Regel + `TIMESTAMPTZ`/`zoneinfo`.
+
+### CodeGraph-Cross-Check
+Delegiert an Explore-Agent (10 gezielte Prüfpunkte). Ergebnis: `require_role(*roles)` exakt bei `deps.py:68` bestätigt; Router-Registrierung `main.py:25-36`, letzter Router `angebote_router` bei Zeile 36 (Design-Text korrigiert: „35" → „36" impliziert, jetzt präzisiert); RLS-Muster exakt wie behauptet; `angebote`-Nested-Route-Vorbild bei `angebote/routes.py:28/33` (`/vorgaenge/{vorgang_id}/angebote`) bestätigt; `vorgang.zugewiesener_nutzer_id` bei `003_kunden_vorgaenge.sql:44` und `vorgaenge/schemas.py:40` bestätigt; SQLite-Testengine splittet SQL an `;` bei `db.py:136` bestätigt (Migrationsregel „kein `$$`-Block" ist damit korrekt begründet); shadcn-Primitive alle vier vorhanden, keine Kalender-Lib in `package.json`; `list_users(mandant_id, limit)` hat **keinen** Rollen-/Status-Filter — im Review als Lücke erkannt und behoben (neuer Endpunkt `GET /nutzer/monteure` bzw. Query-Erweiterung ergänzt); kein Namens-/Routen-Konflikt gefunden.
+
+### Autonom behoben
+- Spec-Header-Status korrigiert (`Approved` → `Architecture Draft`) — Inkonsistenz zwischen Spec-Header und `features/INDEX.md`, reine Konsistenzkorrektur.
+- Fehlender Endpunkt für die Monteur-Auswahl im Termin-Dialog ergänzt (`GET /nutzer/monteure`), da `list_users` aktuell nicht nach Rolle/Status filtert — sonst hätte `/abc-frontend` eine unbaubare Abhängigkeit vorgefunden.
+- Explizite `422`-Validierungsregeln für AC-3 (Vorgang-Existenz im Mandanten) und AC-7 (`ende > beginn`) in die API-Form verschoben, statt sie nur implizit in den Acceptance Criteria zu belassen.
+- AC-5-Datenpfad für „Kontakt sichtbar" geklärt: `GET /termine/{id}` liefert Kundenkontakt eingebettet (kein zweiter Client-Request, kein Leck von Preis-/Rechnungsfeldern).
+- Router-Platzierungshinweis präzisiert (`termine_router` nach `angebote_router`, Zeile 36).
+
+### Offene Fragen
+Keine. Alle Funde waren technische Lücken (fixable ohne Produktentscheidung), keine ambige Geschäftslogik.
 
 ## QA Test Results
 _To be added by /qa_
