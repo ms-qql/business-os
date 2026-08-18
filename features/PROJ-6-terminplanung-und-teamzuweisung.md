@@ -91,14 +91,18 @@ Termine (neuer Navigationspunkt „Termine", nur Inhaber/Büro sichtbar)
 - Keine Dateien in PROJ-6: etwaige Anhänge werden aus dem zugehörigen Vorgang (PROJ-3/MinIO) angezeigt; PROJ-6 legt keinen eigenen Speicherpfad an.
 
 ### API-Form (Endpunkte, keine Implementierung)
-- `GET /termine?von=&bis=` → Termine des Mandanten im Kalenderfenster (Wochenansicht lädt nur den sichtbaren Zeitraum).
+- `GET /termine?von=&bis=&nutzer_ids=` → Termine des Mandanten im Kalenderfenster (Wochenansicht lädt nur den sichtbaren Zeitraum; `nutzer_ids` filtert auf ausgewählte Monteure bei >3).
 - `POST /termine` → Termin anlegen (Vorgang, Beginn, Ende, Adresse optional, Notiz, Monteure[]).
 - `GET /termine/{id}` → einen Termin mit seinen Zuweisungen lesen.
 - `PATCH /termine/{id}` → Termin ändern/verschieben; Antwort enthält bei Überschneidung `konflikt: true` mit Liste betroffener Monteure.
 - `POST /termine/{id}/absagen` → Termin absagen (kein hartes Löschen; bleibt in Historie).
 - `POST /termine/{id}/zuweisungen` und `DELETE /termine/{id}/zuweisungen/{nutzer_id}` → Monteur zuweisen/entziehen.
+- **Vorgangs-verknüpfte Liste (Nested-Route, wie PROJ-5 Angebote):** `GET /vorgaenge/{id}/termine` und `POST /vorgaenge/{id}/termine` — zeigen dieselben Daten wie `/termine`, Einstieg aber vom Vorgang aus (Termin-Sektion im Vorgangsdetail).
 - **Monteur-Sicht:** `GET /termine` liefert Monteuren serverseitig nur die eigenen Termine; schreibende Endpunkte sind mit `403` gesperrt.
 - Jeder Endpunkt liest den Mandanten aus der Sitzung; Schreibend (`POST/PATCH/DELETE`, Zuweisung) tragen `require_role("Büro","Inhaber")`.
+
+### Neue Migrationsdatei
+- `backend/sql/007_termine.sql` — Tabellen `termin` (`mandant_id`, `vorgang_id` FK `ON DELETE RESTRICT`, `beginn`/`ende` als `TIMESTAMPTZ`, `adresse`, `notiz`, `abgesagt_at`, `vorheriger_vorgang_status`) und `termin_zuweisung` (`termin_id`, `nutzer_id`, UNIQUE), jeweils mit RLS-Policy auf `current_setting('app.current_mandant_id')` und Indizes auf `(mandant_id, beginn)` sowie `(nutzer_id, beginn)`. Idempotent (IF NOT EXISTS), kein `$$`-Block (siehe Tech-Entscheidungen).
 
 ### Technische Entscheidungen (WARUM)
 - **Eigenes Feature-Modul `backend/app/features/termine/`** im bewährten Vier-Datei-Layout (schemas/repository/service/routes + `__init__`-Re-Export) und zentrale Registration in `main.py` — kein neues Muster, volle Konsistenz mit PROJ-3/5.
@@ -107,7 +111,10 @@ Termine (neuer Navigationspunkt „Termine", nur Inhaber/Büro sichtbar)
 - **Status-Rücksetzung historisiert:** nur wenn kein offener Termin mehr am Vorgang besteht, wird der Status zurückgesetzt und ein Historie-Eintrag geschrieben — vermeidet verlorene Zwischenstände.
 - **Mandantentrennung via RLS + `mandant_id`:** die Überschneidungsprüfung gilt nur innerhalb des eigenen Mandanten; ein Fehler in der Anwendung kann keine fremden Termine leaken.
 - **Einheitliche Zeitzone Europa/Berlin:** alle Zeitvergleiche (inkl. Konfliktprüfung) laufen in derselben Zeitzone; keine mehrfachen Zeitzonen im Modell.
-- **Kein Echtzeit:** Kalender wird bei Bedarf neu geladen (wie PROJ-3) — keine WebSocket-Verbindung nötig.
+- **Status-Rücksetzung (AC-6) — Quelle des vorherigen Status:** PROJ-3 hält keinen `vorheriger_status` auf dem Vorgang. Entscheidung: das Anlegen des ersten offenen Termins merkt sich den Vorgangsstatus **in `termin.vorheriger_vorgang_status`** (Snapshot beim Setzen auf „Termin geplant"). Bei Absage des letzten offenen Termins wird genau dieser gespeicherte Wert zurückgeschrieben und der Wechsel historisiert. Das vermeidet teure Historien-Rekonstruktion und ist robust gegen Zwischenstatuswechsel.
+- **Zeitzone Europa/Berlin (AC-7):** das Repository-Snippet aus PROJ-3 nutzt UTC-`isoformat()` für Zeitstempel. PROJ-6 speichert Beginn/Ende hingegen als `TIMESTAMPTZ` und rechnet bei Ein-/Ausgabe explizit nach Europa/Berlin um (über `zoneinfo`, keine neue Abhängigkeit — stdlib). Alle Vergleiche (inkl. Konfliktprüfung) laufen in dieser einen Zeitzone; was der Browser als lokalen Wert schickt, wird serverseitig als Europa/Berlin interpretiert.
+- **Keine `$$`-Blöcke in der Migration:** die SQLite-Testengine splittet SQL an `;` (`backend/app/db.py`). Die neue `007_termine.sql` wird daher ohne Funktionen/`DO$$-Blöcke geschrieben (nur `CREATE TABLE`/`POLICY`/`INDEX`), exakt wie die bestehenden 001–006.
+- **Vorgangs-Verknüpfung folgt dem Nested-Route-Muster aus PROJ-5:** wie Angebote unter `/vorgaenge/{id}/angebote` bekommt PROJ-6 `GET|POST /vorgaenge/{id}/termine` als verknüpfte Liste; die eigenständige Termin-Ressource (`/termine`) bleibt für die Kalenderansicht. Beide Route-Familien zeigen dieselben Daten, unterschiedlicher Einstieg.
 
 ### Abhängigkeiten
 - **Backend:** keine neuen Pakete; raw SQL + RLS wie in PROJ-1/3 etabliert.
