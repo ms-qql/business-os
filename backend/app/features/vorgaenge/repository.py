@@ -104,6 +104,16 @@ def assign_vorgang(mandant_id: str, vorgang_id: str, nutzer_id: str) -> dict | N
     return get_vorgang(mandant_id, vorgang_id)
 
 
+def list_nutzer_by_role(mandant_id: str, role: str, status: str | None = None) -> list[dict]:
+    sql = "SELECT id, name, email, role, status FROM nutzer WHERE mandant_id = %s AND role = %s"
+    params: list = [mandant_id, role]
+    if status:
+        sql += " AND status = %s"
+        params.append(status)
+    sql += " ORDER BY name ASC"
+    return db.engine.query(sql, tuple(params), mandant_id=mandant_id)
+
+
 def get_nutzer(mandant_id: str, nutzer_id: str) -> dict | None:
     rows = db.engine.query(
         "SELECT id, name, role, status FROM nutzer WHERE mandant_id = %s AND id = %s",

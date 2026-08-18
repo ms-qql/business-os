@@ -44,12 +44,13 @@ def _require_vorgang(mandant_id: str, vorgang_id: str) -> dict:
 
 def list_vorgaenge(user, status: str | None, q: str | None, kunde_id: str | None,
                    limit: int, offset: int) -> tuple[list[dict], int]:
-    if status is not None and status not in VALID_STATUS:
+    if status is not None and status != "alle" and status not in VALID_STATUS:
         raise ValidationError("Ungültiger Status.")
     limit = min(max(limit, 1), 200)
     offset = max(offset, 0)
+    repo_status = None if status == "alle" else status
     zugewiesener_nutzer_id = user.id if user.role == "Monteur" else None
-    return repo.list_vorgaenge(user.mandant_id, status, q, kunde_id, zugewiesener_nutzer_id,
+    return repo.list_vorgaenge(user.mandant_id, repo_status, q, kunde_id, zugewiesener_nutzer_id,
                                limit, offset)
 
 

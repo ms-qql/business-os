@@ -80,3 +80,26 @@ def uebernehme_anfrage(anfrage_id: str, payload: schemas.UebernahmeCreate,
         user.mandant_id, anfrage_id, payload.kunde_id, user.id,
     )
     return schemas.UebernahmeResult(**result)
+
+
+# --- PROJ-6: Vorgangs-verknüpfte Termine (Nested-Route, wie Angebote) -----
+
+
+@router.get("/{vorgang_id}/termine", response_model=list[dict])
+def list_vorgang_termine(vorgang_id: str, user: CurrentUser = Depends(get_current_user)):
+    from app.features.termine import schemas as termin_schemas
+    from app.features.termine import service as termine_service
+
+    return [termin_schemas.TerminListItem(**t).model_dump()
+            for t in termine_service.list_vorgang_termine(user, vorgang_id)]
+
+
+@router.post("/{vorgang_id}/termine", response_model=dict, status_code=201)
+def create_vorgang_termin(vorgang_id: str, payload: dict,
+                         user: CurrentUser = Depends(_write_roles)):
+    from app.features.termine import schemas as termin_schemas
+    from app.features.termine import service as termine_service
+
+    parsed = termin_schemas.TerminCreateNested(**payload)
+    return termin_schemas.TerminErgebnis(**termine_service.create_termin(
+        user, parsed, vorgang_id_override=vorgang_id)).model_dump()
