@@ -13,7 +13,7 @@ from app.features.vorgaenge import anfragen_router, vorgaenge_router
 from app.features.website import public_router, settings_router
 
 
-app = FastAPI(title="business_os API", version="0.1.0")
+app = FastAPI(title="business_os API", version="0.1.4")
 
 
 @app.exception_handler(AppError)
