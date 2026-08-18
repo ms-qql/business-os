@@ -129,6 +129,25 @@ CREATE TABLE email_anhang (
     objektpfad TEXT NOT NULL, content_type TEXT NOT NULL, groesse_bytes INTEGER NOT NULL,
     verarbeitet BOOLEAN NOT NULL DEFAULT 1, fehler_text TEXT, created_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE angebot_nummernkreis (
+    mandant_id TEXT PRIMARY KEY, letzte_nummer INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE angebot (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL,
+    angebot_nummer TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, vorgaenger_angebot_id TEXT,
+    status TEXT NOT NULL DEFAULT 'entwurf', gueltig_bis TEXT, freitext TEXT,
+    netto_summe REAL NOT NULL DEFAULT 0, steuer_summe REAL NOT NULL DEFAULT 0,
+    brutto_summe REAL NOT NULL DEFAULT 0, dokument_id TEXT, empfaenger_email TEXT,
+    versendet_at TEXT, versendet_von TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE angebot_position (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, angebot_id TEXT NOT NULL, bezeichnung TEXT NOT NULL,
+    menge REAL NOT NULL, einheit TEXT NOT NULL, einzelpreis REAL NOT NULL, steuersatz REAL NOT NULL,
+    rabatt_typ TEXT NOT NULL DEFAULT 'prozent', rabatt_wert REAL NOT NULL DEFAULT 0,
+    sortierung INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
 """
 
 

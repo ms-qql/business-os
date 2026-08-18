@@ -12,6 +12,7 @@ import { VorgangChronik } from "@/components/vorgaenge/vorgang-chronik";
 import { VorgangDokumente } from "@/components/vorgaenge/vorgang-dokumente";
 import { VorgangEmail } from "@/components/email/vorgang-email";
 import { PostfachWarnung } from "@/components/email/postfach-warnung";
+import { VorgangAngebote } from "@/components/angebote/vorgang-angebote";
 import { getVorgang, updateVorgang, zuweisen, type VorgangDetail as VorgangDetailT } from "@/lib/api/vorgaenge";
 import { getKunde, listObjekte, type Kunde, type Objekt } from "@/lib/api/kunden";
 import { listNutzer, type Nutzer } from "@/lib/api/users";
@@ -261,6 +262,17 @@ export function VorgangDetail({ vorgangId, rolle }: { vorgangId: string; rolle: 
           <VorgangEmail vorgangId={vorgang.id} darfSchreiben={darfSchreiben} />
         </CardContent>
       </Card>
+
+      {darfSchreiben && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Angebote</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VorgangAngebote vorgangId={vorgang.id} darfSchreiben={darfSchreiben} kundeEmail={kunde?.email ?? null} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

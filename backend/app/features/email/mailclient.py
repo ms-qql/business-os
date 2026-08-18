@@ -149,10 +149,13 @@ def fetch_unseen(konto: dict) -> list[dict]:
 
 def send_message(konto: dict, to: str, subject: str, body: str,
                  in_reply_to: str | None = None, references: str | None = None,
-                 message_id: str | None = None) -> str:
+                 message_id: str | None = None,
+                 attachment: tuple[str, bytes, str] | None = None) -> str:
     """Versendet eine Text/E-Mail via SMTP und liefert die Message-ID zurück.
 
-    ``konto`` muss bereits entschlüsselte Passwörter enthalten."""
+    ``konto`` muss bereits entschlüsselte Passwörter enthalten. ``attachment``
+    ist optional additiv (PROJ-5): ``(dateiname, daten, content_type)`` — bestehende
+    Aufrufer ohne Anhang sind unverändert kompatibel."""
     k = konto
     msg = EmailMessage()
     msg["From"] = formataddr(("", k["smtp_user"]))
@@ -165,6 +168,11 @@ def send_message(konto: dict, to: str, subject: str, body: str,
     mid = message_id or f"<{uuid.uuid4()}@business-os.local>"
     msg["Message-ID"] = mid
     msg.set_content(body)
+    if attachment:
+        dateiname, daten, content_type = attachment
+        maintype, _, subtype = (content_type or "application/octet-stream").partition("/")
+        msg.add_attachment(daten, maintype=maintype or "application", subtype=subtype or "octet-stream",
+                           filename=dateiname)
 
     host, port = k["smtp_host"], k["smtp_port"]
     if k["smtp_tls"] and port == 465:

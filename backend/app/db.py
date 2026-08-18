@@ -4,9 +4,23 @@ import os
 import re
 import sqlite3
 import uuid
+from contextlib import contextmanager
 from typing import Any
 
 from .config import settings
+
+
+class TransactionCtx:
+    """Bound to a single open connection; every call runs in the same
+    transaction as the enclosing ``with engine.transaction(...)`` block —
+    needed for the Angebotsnummer-Zähler (SELECT ... FOR UPDATE + Update
+    müssen atomar in derselben Transaktion laufen, siehe PROJ-5 Tech Design)."""
+
+    def query(self, sql: str, params: tuple = ()) -> list[dict]:
+        raise NotImplementedError
+
+    def command(self, sql: str, params: tuple = ()) -> int:
+        raise NotImplementedError
 
 
 class BaseEngine:
@@ -17,6 +31,9 @@ class BaseEngine:
         raise NotImplementedError
 
     def command(self, sql: str, params: tuple = (), mandant_id: str | None = None) -> int:
+        raise NotImplementedError
+
+    def transaction(self, mandant_id: str | None = None):
         raise NotImplementedError
 
 
@@ -70,6 +87,38 @@ class PostgresEngine(BaseEngine):
         else:
             conn.close()
 
+    @contextmanager
+    def transaction(self, mandant_id: str | None = None):
+        conn = self._conn()
+        try:
+            conn.execute("BEGIN")
+            if mandant_id:
+                conn.execute("SELECT set_config('app.current_mandant_id', %s::text, true)", (mandant_id,))
+            yield _PostgresTransactionCtx(conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+
+class _PostgresTransactionCtx(TransactionCtx):
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def query(self, sql: str, params: tuple = ()) -> list[dict]:
+        cur = self._conn.execute(sql, params)
+        cols = [c.name for c in cur.description]
+        return [
+            dict(zip(cols, (str(value) if isinstance(value, uuid.UUID) else value for value in row)))
+            for row in cur.fetchall()
+        ]
+
+    def command(self, sql: str, params: tuple = ()) -> int:
+        cur = self._conn.execute(sql, params)
+        return cur.rowcount
+
 
 class SqliteEngine(BaseEngine):
     """Test engine: in-memory SQLite. RLS is not available in SQLite, so tenant
@@ -104,6 +153,31 @@ class SqliteEngine(BaseEngine):
     def command(self, sql: str, params: tuple = (), mandant_id: str | None = None) -> int:
         cur = self._conn.execute(self._to_qmark(sql), params)
         self._conn.commit()
+        return cur.rowcount
+
+    @contextmanager
+    def transaction(self, mandant_id: str | None = None):
+        # Sqlite hier ist eine einzige geteilte Verbindung (Testdouble); die
+        # Testsuite läuft nicht nebenläufig, daher genügt ein einfacher
+        # Commit/Rollback-Block ohne echtes Row-Level-Locking.
+        try:
+            yield _SqliteTransactionCtx(self._conn)
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
+
+
+class _SqliteTransactionCtx(TransactionCtx):
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def query(self, sql: str, params: tuple = ()) -> list[dict]:
+        cur = self._conn.execute(SqliteEngine._to_qmark(sql), params)
+        return [dict(r) for r in cur.fetchall()]
+
+    def command(self, sql: str, params: tuple = ()) -> int:
+        cur = self._conn.execute(SqliteEngine._to_qmark(sql), params)
         return cur.rowcount
 
 

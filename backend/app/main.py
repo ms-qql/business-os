@@ -11,6 +11,7 @@ from app.features.operator import admin_router, operator_router
 from app.features.users import users_router
 from app.features.vorgaenge import anfragen_router, vorgaenge_router
 from app.features.website import public_router, settings_router
+from app.features.angebote import angebote_router
 
 
 app = FastAPI(title="business_os API", version="0.1.5")
@@ -32,6 +33,7 @@ app.include_router(vorgaenge_router)
 app.include_router(anfragen_router)
 app.include_router(email_router)
 app.include_router(internal_router)
+app.include_router(angebote_router)
 
 
 @app.get("/health")

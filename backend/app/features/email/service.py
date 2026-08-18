@@ -146,7 +146,11 @@ def list_vorgang_emails(mandant_id: str, vorgang_id: str) -> list[dict]:
 
 # --- Senden ----------------------------------------------------------------
 
-def send_vorgang_email(user, vorgang_id: str, compose) -> dict:
+def send_vorgang_email(user, vorgang_id: str, compose,
+                       attachment: tuple[str, bytes, str] | None = None) -> dict:
+    """``attachment`` ist optional additiv (PROJ-5): ``(dateiname, daten, content_type)``
+    für z. B. den Angebots-PDF-Versand — bestehende Aufrufer ohne Anhang bleiben
+    unverändert kompatibel."""
     vorgang = vorgaenge_repo.get_vorgang(user.mandant_id, vorgang_id)
     if not vorgang:
         raise NotFoundError("Vorgang nicht gefunden.")
@@ -174,7 +178,7 @@ def send_vorgang_email(user, vorgang_id: str, compose) -> dict:
     decrypted = mailclient.decrypt_konto(konto)
     message_id = mailclient.send_message(
         decrypted, empfaenger, compose.betreff, compose.text,
-        in_reply_to=in_reply_to, references=references,
+        in_reply_to=in_reply_to, references=references, attachment=attachment,
     )
 
     thread = repo.find_thread_for_vorgang(user.mandant_id, vorgang_id)

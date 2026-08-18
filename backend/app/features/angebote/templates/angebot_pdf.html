@@ -1,0 +1,69 @@
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  h1 { font-size: 16pt; margin-bottom: 0; }
+  .meta { margin-bottom: 16px; color: #444; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border-bottom: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 9pt; }
+  th { background-color: #f0f0f0; }
+  .right { text-align: right; }
+  .summen { margin-top: 12px; width: 40%; float: right; }
+  .freitext { margin-top: 24px; clear: both; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <h1>Angebot {{ angebot_nummer }}</h1>
+  <div class="meta">
+    <strong>{{ betrieb_name }}</strong><br>
+    Version {{ version }}
+    {% if gueltig_bis %} &middot; Gültig bis {{ gueltig_bis }}{% endif %}
+  </div>
+  <div class="meta">
+    <strong>Kunde</strong><br>
+    {{ kunde_name }}<br>
+    {% if kunde_email %}{{ kunde_email }}<br>{% endif %}
+    {% if kunde_telefon %}{{ kunde_telefon }}{% endif %}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Bezeichnung</th>
+        <th class="right">Menge</th>
+        <th>Einheit</th>
+        <th class="right">Einzelpreis</th>
+        <th class="right">Rabatt</th>
+        <th class="right">Steuersatz</th>
+        <th class="right">Summe</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in positionen %}
+      <tr>
+        <td>{{ p.bezeichnung }}</td>
+        <td class="right">{{ p.menge }}</td>
+        <td>{{ p.einheit }}</td>
+        <td class="right">{{ p.einzelpreis_txt }} &euro;</td>
+        <td class="right">{{ p.rabatt_txt }}</td>
+        <td class="right">{{ p.steuersatz }} %</td>
+        <td class="right">{{ p.positions_summe_txt }} &euro;</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summen">
+    <table>
+      <tr><td>Netto</td><td class="right">{{ netto_txt }} &euro;</td></tr>
+      <tr><td>Steuer</td><td class="right">{{ steuer_txt }} &euro;</td></tr>
+      <tr><td><strong>Brutto</strong></td><td class="right"><strong>{{ brutto_txt }} &euro;</strong></td></tr>
+    </table>
+  </div>
+
+  {% if freitext %}
+  <div class="freitext">{{ freitext }}</div>
+  {% endif %}
+</body>
+</html>
