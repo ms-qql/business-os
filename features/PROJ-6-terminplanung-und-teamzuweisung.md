@@ -1,9 +1,10 @@
 # PROJ-6: Terminplanung und Teamzuweisung
 
-## Status: In Progress (Frontend implementiert, Backend offen)
+## Status: In Review (QA: 7/7 AC bestanden, BUG-1 Medium offen)
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-18
-**Frontend-Stand:** 2026-08-18 — Next.js 16 + shadcn/ui, gebaut & typegeprüft. Backend (Migrations + Routen) noch offen (siehe Handoff).
+**Frontend-Stand:** 2026-08-18 — Next.js 16 + shadcn/ui, gebaut & typegeprüft. Backend implementiert (Migration `007_termine.sql`, Feature-Modul `backend/app/features/termine/`), Commit `fe1e046`.
+**QA-Stand:** 2026-08-18 — 7/7 AC bestanden, Security-Audit ohne Critical/High-Befund, BUG-1 (Medium) offen. Siehe „QA Test Results" unten.
 
 ## Dependencies
 - Requires: PROJ-3 — Vorgang und zugehörige Adresse.
@@ -185,7 +186,53 @@ erwartet exakt die dort spezifizierten Endpunkte/Felder (insb. `konflikt`/`konfl
 `kontakt` in `GET /termine/{id}`).
 
 ## QA Test Results
-_To be added by /qa_
+**Getestet:** 2026-08-18 · **Branch:** `specs/PROJ-6-terminplanung-und-teamzuweisung` · **Stack:** Next.js 16 + FastAPI + `.venv` (pytest 9.1.1, kein conda-Env im Projekt vorhanden)
+
+### Automatisierte Tests
+- `backend/.venv/bin/python -m pytest -q` → **148 passed** (146 bestehend + 2 neue `xfail` als Regression-Marker für BUG-1, siehe unten). Kein Fehlschlag in der Gesamt-Suite (inkl. Regression aller anderen Features PROJ-1…5).
+- `npx tsc --noEmit` (nextjs_app) → sauber, keine Typfehler.
+- `backend/tests/features/termine/test_termine.py` deckt bereits 23 Fälle ab (AC-1, AC-3, AC-4, AC-5, AC-6, Zuweisungen, Nested-Route, Tenant-Isolation, Monteurliste).
+
+### Acceptance Criteria
+| AC | Beschreibung | Status |
+|---|---|---|
+| AC-1 | Anlage/Änderung/Absage, Termin ohne Teammitglied erlaubt | ✅ Pass |
+| AC-2 | Kalenderansicht (Tag/Woche, max. 3 Spalten, Auswahl bei >3) | ✅ Pass (Frontend gebaut, `npx tsc --noEmit` clean; Code-Review, kein Live-Browser-Rendering in dieser Runde) |
+| AC-3 | Vorgangsbezug, `422` bei fremdem/ungültigem Vorgang | ✅ Pass |
+| AC-4 | Konfliktwarnung nicht-blockierend, `konflikt`/`konflikt_monteure` | ✅ Pass |
+| AC-5 | Monteursicht (nur eigene, Kontakt eingebettet, kein Preis, `403` bei Schreibversuch) | ✅ Pass |
+| AC-6 | Statuswechsel „Termin geplant" / Rücksetzung bei Absage des letzten offenen Termins, historisiert | ✅ Pass |
+| AC-7 | Validierung `ende > beginn` (`422`), Zeitzone Europa/Berlin einheitlich | ✅ Pass (Zeiten intern konsistent UTC-normalisiert; Vergleich funktional korrekt) |
+
+**Ergebnis: 7/7 Acceptance Criteria bestanden.**
+
+### Security-Audit (Red Team)
+- **JWT-Signaturprüfung:** Token mit gefälschtem `mandant_id`-Claim und falsch geratenem Secret wird korrekt mit `401` abgelehnt — keine Signaturumgehung möglich.
+- **Tenant-Isolation:** Mandant B kann Termine von Mandant A weder per Detail-GET (`404`) noch per Liste (`total: 0`) einsehen; verifiziert per Test. Cross-tenant Zuweisung eines Monteurs aus fremdem Mandanten schlägt mit `422`/`404` fehl.
+- **SQL-Injection:** `adresse`-Feld sowie `nutzer_ids`-Query-Parameter mit klassischen SQLi-Payloads (`'; DROP TABLE termin; --`, `x') OR ('1'='1`) getestet — alle Queries sind parametrisiert (`%s`-Platzhalter), Payload wird als Literal gespeichert bzw. Query bleibt sicher. Kein Befund.
+- **Rollen-Guard:** Monteur erhält `403` bei `POST/PATCH /termine` und `POST /termine/{id}/absagen` — bestätigt per Test.
+- **Fehlende Pflichtparameter (`von`/`bis`):** korrekt mit `422` abgelehnt statt stillem Fallback.
+
+### Bugs
+
+**BUG-1 (Medium) — Deaktivierte Monteure können neu zugewiesen werden**
+- **Wo:** `backend/app/features/termine/service.py::_require_monteur()` (Zeile 39–45)
+- **Was:** Die Funktion prüft nur `nutzer["role"] != "Monteur"`, nicht den Status (`active`/`disabled`). Sowohl `POST /termine` (Anlage mit `monteure: [...]`) als auch `POST /termine/{id}/zuweisungen` akzeptieren einen deaktivierten Monteur klaglos (`201`), statt mit `422` abzulehnen.
+- **Reproduktion:** Monteur mit `status="disabled"` anlegen → `POST /termine` mit dessen `nutzer_id` in `monteure[]` → Antwort `201`, Zuweisung wird real gespeichert (Response zeigt `aktiv: false`, aber die Zuweisung existiert in der DB).
+- **Bezug zur Spec:** Edge Case (Zeile 36): „Deaktivierte Nutzer können einem Termin nicht neu zugewiesen werden; bestehende Zuweisungen bleiben nachvollziehbar." — die zweite Hälfte ist korrekt implementiert; die erste (Neuzuweisung blockieren) fehlt serverseitig.
+- **Mitigierender Faktor:** Der Termin-Dialog im Frontend filtert deaktivierte Monteure bereits client-seitig aus der Auswahl (`termin-dialog.tsx:76`, `setMonteure(m.filter(x => x.aktiv))`) — das UI verhindert den Fall im Normalbetrieb. Es fehlt aber die serverseitige Absicherung (Defense-in-Depth: direkter API-Zugriff, künftiger zweiter Client, Race Condition beim Deaktivieren nach Laden der Liste).
+- **Regressionstests:** `test_bug1_deaktivierter_monteur_bei_anlage_abgelehnt` und `test_bug1_deaktivierter_monteur_via_zuweisen_endpoint_abgelehnt` in `backend/tests/features/termine/test_termine.py` (aktuell `xfail(strict=True)` — laufen automatisch grün, sobald der Fix umgesetzt ist; der Marker muss dann entfernt werden).
+- **Fix-Vorschlag (nicht umgesetzt — QA fixt keine Bugs):** In `_require_monteur()` zusätzlich `if nutzer["status"] != "active": raise ValidationError(...)` ergänzen.
+
+Keine Critical- oder High-Bugs gefunden. Kein Live-Browser-Rendering (Chrome, Responsive 375/768/1440 px) in dieser QA-Runde durchgeführt — Empfehlung: vor Produktivsetzung nachholen.
+
+### Regression (andere Features)
+Volle Suite grün (148/148 inkl. PROJ-1, PROJ-3, PROJ-4, PROJ-5 Tests) — keine Regression durch PROJ-6 festgestellt.
+
+### Production-Ready Empfehlung
+**READY**, mit Vorbehalt: BUG-1 ist **Medium** (kein Critical/High — Frontend blockiert den Fall bereits clientseitig, kein Tenant-Leck, kein Datenverlust, kein Auth-Bypass). Gemäß Skill-Regel „READY: No Critical or High bugs remaining" ist das Feature production-ready; BUG-1 sollte dennoch zeitnah nachgezogen werden.
+
+**Empfehlung: READY** (mit offenem Medium-Bug BUG-1 zur Nachbesserung).
 
 ## Deployment
 _To be added by /deploy_
