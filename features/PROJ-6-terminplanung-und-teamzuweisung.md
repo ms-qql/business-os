@@ -1,6 +1,6 @@
 # PROJ-6: Terminplanung und Teamzuweisung
 
-## Status: Approved (QA: 7/7 AC bestanden, BUG-1 gefixt+retestet)
+## Status: Deployed
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-18
 **Frontend-Stand:** 2026-08-18 — Next.js 16 + shadcn/ui, gebaut & typegeprüft. Backend implementiert (Migration `007_termine.sql`, Feature-Modul `backend/app/features/termine/`), Commit `fe1e046`.
@@ -235,4 +235,20 @@ Volle Suite grün (148/148 inkl. PROJ-1, PROJ-3, PROJ-4, PROJ-5 Tests) — keine
 **Empfehlung: READY** — nächster Schritt: `/abc-deploy`.
 
 ## Deployment
-_To be added by /deploy_
+**Production URL:** https://biz.app.msce.info
+**Deployed:** 2026-08-18 · **Version:** 0.1.7 · **Host:** Dokploy (Compose), Auto-Deploy via Push auf `main`.
+**Merge:** `specs/PROJ-6-terminplanung-und-teamzuweisung` → `main` (Commit `168db5c`), Version-Bump `1de308c` (0.1.6 → 0.1.7), gepusht nach `origin/main`.
+**CodeGraph:** re-indexiert nach Merge (173 Dateien, 2.047 Nodes, 4.817 Edges).
+
+**Was ausgeliefert wurde:** Backend-Migration `007_termine.sql` (`termin`, `termin_zuweisung`, RLS), Feature-Modul `backend/app/features/termine/`, Endpunkte `/termine`, `/termine/{id}`, `/termine/{id}/absagen`, `/termine/{id}/zuweisungen`, `/vorgaenge/{id}/termine`, `/nutzer/monteure`; Frontend-Kalenderansicht (Tag/Woche, max. 3 Monteurspalten), Termin-Dialog, Monteuransicht, Absage-Dialog. BUG-1-Fix (deaktivierte Monteure serverseitig blockiert) ist Teil dieses Deploys.
+
+**Smoke-Test:** Konnte in dieser Session **nicht automatisiert** durchgeführt werden — die Ausführungsumgebung hat keinen DNS-/Internetzugriff (curl: `Could not resolve host`) und der Browser-Tool konnte kein Chrome starten. Der Push nach `main` ist erfolgt; Dokploy Auto-Deploy sollte den Build ausgelöst haben. **Der Nutzer prüft den Smoke-Test manuell** (Health-Endpoint, Login, Termine-Navigation, Kalender/Anlage, Dokploy-Logs) — Bookkeeping wurde auf Nutzerwunsch bereits vor dieser Bestätigung abgeschlossen.
+
+**Offene Nachprüfung (Checkliste für den Nutzer):**
+- [ ] `https://biz.app.msce.info/api/health` → ok
+- [ ] Login-Seite lädt, Login funktioniert
+- [ ] Navigationspunkt „Termine" sichtbar (Büro/Inhaber)
+- [ ] Termin anlegen/ändern/absagen funktioniert; Kalenderansicht zeigt Spalten korrekt
+- [ ] Monteur-Login zeigt nur eigene Termine (kein Preis sichtbar)
+- [ ] Dokploy Deployments-Log ohne Fehler
+- [ ] Browser hart neu geladen (Service-Worker-Cache) nach dem Test
