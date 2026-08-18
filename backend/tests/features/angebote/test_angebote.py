@@ -127,6 +127,19 @@ def test_freigabe_returns_pdf_url_and_prefills_empfaenger(client, mandant):
     assert body["brutto_summe"] == 171.36
 
 
+def test_freigabe_accepts_empfaenger_betreff_override(client, mandant):
+    tok = _login(client, mandant, "buero@shk.de")
+    _, vorgang = _setup_vorgang(mandant)
+    angebot = _create_angebot(client, tok, vorgang["id"])
+    client.post(f"/angebote/{angebot['id']}/positionen", headers=_auth(tok), json=POSITION)
+    r = client.post(f"/angebote/{angebot['id']}/freigabe", headers=_auth(tok),
+                    json={"empfaenger": "ueberschrieben@extern.de", "betreff": "Individueller Betreff"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["empfaenger"] == "ueberschrieben@extern.de"
+    assert body["betreff"] == "Individueller Betreff"
+
+
 def test_senden_without_freigabe_blocked(client, mandant):
     tok = _login(client, mandant, "buero@shk.de")
     _, vorgang = _setup_vorgang(mandant)

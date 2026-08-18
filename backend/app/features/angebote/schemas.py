@@ -87,6 +87,11 @@ class FreigabeResult(BaseModel):
     pdf_download_url: str
 
 
+class FreigabeRequest(BaseModel):
+    empfaenger: Optional[EmailStr] = None
+    betreff: Optional[str] = Field(default=None, min_length=1)
+
+
 class SendenRequest(BaseModel):
     empfaenger: Optional[EmailStr] = None
     betreff: Optional[str] = Field(default=None, min_length=1)

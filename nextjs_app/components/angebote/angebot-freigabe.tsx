@@ -35,18 +35,20 @@ export function AngebotFreigabe({
   onVersendet: () => void;
 }) {
   const [freigabe, setFreigabe] = React.useState<FreigabeResult | null>(null);
+  const [werte, setWerte] = React.useState<FreigabeFormValues | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [bereitet, setBereitet] = React.useState(false);
   const [sendet, setSendet] = React.useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FreigabeFormValues>({
     resolver: zodResolver(freigabeSchema),
-    defaultValues: { empfaenger: vorschlagEmpfaenger, betreff: `Ihr Angebot ${angebot.nummer}` },
+    defaultValues: { empfaenger: vorschlagEmpfaenger, betreff: `Ihr Angebot ${angebot.angebot_nummer}` },
   });
 
   React.useEffect(() => {
     if (!open) {
       setFreigabe(null);
+      setWerte(null);
       setError(null);
     }
   }, [open]);
@@ -56,6 +58,7 @@ export function AngebotFreigabe({
     setError(null);
     try {
       setFreigabe(await angebotFreigeben(angebot.id, values));
+      setWerte(values);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Freigabe konnte nicht vorbereitet werden.");
     } finally {
@@ -67,7 +70,18 @@ export function AngebotFreigabe({
     setSendet(true);
     setError(null);
     try {
-      await angebotSenden(angebot.id);
+      // Overrides mitschicken: SendenRequest unterstützt Empfänger/Betreff-Overrides,
+      // auch wenn die Vorschau (POST .../freigabe) sie serverseitig nicht berücksichtigt (BUG-3).
+      const result = await angebotSenden(angebot.id, {
+        empfaenger: werte?.empfaenger,
+        betreff: werte?.betreff,
+      });
+      if (!result.versendet) {
+        // BUG-4: Backend antwortet mit HTTP 200 auch bei fehlgeschlagenem Versand —
+        // Erfolg darf hier nicht aus dem HTTP-Status, sondern muss aus dem Body gelesen werden.
+        setError(result.fehler_text ?? "Angebot wurde nicht versendet.");
+        return;
+      }
       onOpenChange(false);
       onVersendet();
     } catch (err) {
@@ -79,7 +93,7 @@ export function AngebotFreigabe({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Angebot freigeben und senden" className="max-w-2xl" description={`Angebot ${angebot.nummer} · Version ${angebot.version}`}>
+    <Dialog open={open} onOpenChange={onOpenChange} title="Angebot freigeben und senden" className="max-w-2xl" description={`Angebot ${angebot.angebot_nummer} · Version ${angebot.version}`}>
       <div className="space-y-4">
         {!freigabe ? (
           <form onSubmit={handleSubmit(onVorbereiten)} className="space-y-3">
@@ -107,7 +121,7 @@ export function AngebotFreigabe({
             </div>
 
             <iframe
-              src={freigabe.pdf_url}
+              src={freigabe.pdf_download_url}
               title="PDF-Vorschau des Angebots"
               className="h-96 w-full rounded-[var(--radius-md)] border border-[var(--color-border)]"
             />

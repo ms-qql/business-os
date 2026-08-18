@@ -227,7 +227,7 @@ def get_pdf_download_url(user, angebot_id: str) -> str:
 
 # --- Freigabe / Senden -----------------------------------------------------
 
-def freigabe(user, angebot_id: str) -> dict:
+def freigabe(user, angebot_id: str, payload=None) -> dict:
     angebot = _require_angebot(user.mandant_id, angebot_id)
     _require_entwurf(angebot)
 
@@ -237,7 +237,8 @@ def freigabe(user, angebot_id: str) -> dict:
 
     vorgang = _require_vorgang(user.mandant_id, angebot["vorgang_id"])
     kunde = kunden_repo.get_kunde(user.mandant_id, vorgang["kunde_id"])
-    empfaenger = kunde.get("email") if kunde else None
+    empfaenger = (payload.empfaenger if payload and payload.empfaenger else None) or \
+        (kunde.get("email") if kunde else None)
     if not empfaenger:
         raise ValidationError("Ein Angebot ohne Empfänger-E-Mail kann nicht freigegeben werden.")
 
@@ -255,7 +256,7 @@ def freigabe(user, angebot_id: str) -> dict:
     vorgaenge_repo.add_historie(user.mandant_id, vorgang["id"], "angebot_freigabe_vorbereitet",
                                 angebot["angebot_nummer"], user.id)
 
-    betreff = f"Angebot {angebot['angebot_nummer']}"
+    betreff = (payload.betreff if payload and payload.betreff else None) or f"Angebot {angebot['angebot_nummer']}"
     return {
         "angebot_id": angebot_id, "empfaenger": empfaenger, "betreff": betreff,
         "netto_summe": netto, "steuer_summe": steuer, "brutto_summe": brutto,

@@ -71,8 +71,9 @@ def get_pdf(angebot_id: str, user: CurrentUser = Depends(_write_roles)):
 
 
 @router.post("/angebote/{angebot_id}/freigabe", response_model=schemas.FreigabeResult)
-def freigabe(angebot_id: str, user: CurrentUser = Depends(_write_roles)):
-    return schemas.FreigabeResult(**angebote_service.freigabe(user, angebot_id))
+def freigabe(angebot_id: str, payload: schemas.FreigabeRequest | None = None,
+             user: CurrentUser = Depends(_write_roles)):
+    return schemas.FreigabeResult(**angebote_service.freigabe(user, angebot_id, payload))
 
 
 @router.post("/angebote/{angebot_id}/senden", response_model=schemas.SendenResult)

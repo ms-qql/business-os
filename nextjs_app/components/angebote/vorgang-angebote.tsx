@@ -303,7 +303,7 @@ export function VorgangAngebote({
     try {
       const a = await createAngebot(vorgangId);
       setAktuelles(a);
-      setListe((prev) => [{ id: a.id, nummer: a.nummer, version: a.version, status: a.status, brutto_summe: a.brutto_summe, versendet_am: a.versendet_am, created_at: a.created_at }, ...(prev ?? [])]);
+      setListe((prev) => [{ id: a.id, angebot_nummer: a.angebot_nummer, version: a.version, status: a.status, brutto_summe: a.brutto_summe, versendet_at: a.versendet_at, created_at: a.created_at }, ...(prev ?? [])]);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Angebot konnte nicht erstellt werden.");
     } finally {
@@ -339,7 +339,7 @@ export function VorgangAngebote({
         <ul className="space-y-1 text-sm">
           {liste.map((a) => (
             <li key={a.id} className="flex items-center gap-2">
-              <span className="font-medium">{a.nummer}</span>
+              <span className="font-medium">{a.angebot_nummer}</span>
               <span className="text-[var(--color-muted-foreground)]">Version {a.version}</span>
               <Badge variant={a.status === "versendet" ? "success" : "neutral"}>
                 {a.status === "versendet" ? "Versendet" : "Entwurf"}

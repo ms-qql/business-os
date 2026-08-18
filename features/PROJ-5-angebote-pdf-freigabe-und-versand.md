@@ -1,6 +1,6 @@
 # PROJ-5: Angebote, PDF, Freigabe und Versand
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -235,8 +235,100 @@ Gebaut exakt gegen den im Tech Design (Abschnitt C) spezifizierten API-Vertrag �
 - `GET /angebote/{id}/pdf` erzeugt bei Bedarf (kein `dokument_id` vorhanden) das PDF on-the-fly, statt nur einen bereits vorhandenen Dokument-Verweis zurückzugeben — deckt den im Tech Design als "optional" markierten Fall ab ("und optional GET /angebote/{id}/pdf" in Abschnitt D).
 - Frontend (Next.js-Komponenten aus Abschnitt A) ist **nicht** Teil dieses Backend-Durchlaufs — folgt über `/abc-frontend`.
 
+**Nachtrag 2026-08-18 (Backend-Fix, BUG-3 aus QA/Frontend-Bugfix-Runde):** `POST /angebote/{id}/freigabe` nahm keinen Body entgegen — vom Nutzer editierte Empfänger-/Betreff-Werte in der Freigabeansicht wurden von FastAPI stillschweigend verworfen, Server-Defaults kamen immer zum Zug. Fix: neues `FreigabeRequest`-Schema (`empfaenger: EmailStr | None`, `betreff: str | None`, analog zu `SendenRequest`) in `schemas.py`; `service.freigabe(user, angebot_id, payload=None)` nimmt es jetzt entgegen und überschreibt den aus dem Kunden-Datensatz ermittelten Empfänger bzw. den generierten Standard-Betreff, sofern gesetzt; `routes.py::freigabe` bekam den optionalen Body-Parameter. Test ergänzt: `test_freigabe_accepts_empfaenger_betreff_override`. Lücke geschlossen.
+
 ## QA Test Results
-_To be added by /qa_
+**Getestet:** 2026-08-18 · Branch `specs/PROJ-5-angebote-pdf-freigabe-und-versand`, Commit `cfcb5bc`
+
+### Automatisierte Tests
+- Backend: `conda run -n Dashboard --no-capture-output python -m pytest backend/tests` → **118 passed**, keine Fehler, keine Regressionen (17 davon neu für PROJ-5, inkl. Cross-Tenant-Test).
+- Frontend: `npm run test` → **6 Suiten / 27 Tests grün**. `npx next lint` → 0 Errors / 0 Warnings. `npx tsc --noEmit` → keine Fehler.
+- Hinweis: Die Frontend-Suite testet nur die reine Berechnungs-/Zod-Logik, nicht die Integration gegen die echten Backend-Response-Shapes (kein Component-/Contract-Test, der `Angebot`-Objekte vom echten Endpunkt konsumiert). Das hat den unten dokumentierten BUG-1..BUG-3 nicht auffangen können.
+
+### Methodik
+Da kein laufender Docker-Stack für einen Browser-Smoke-Test zur Verfügung stand, erfolgte die Prüfung als **Code-Level-Vertragsabgleich**: Backend-Pydantic-Response-Schemas (`backend/app/features/angebote/schemas.py`), tatsächliche Service-Rückgabewerte (`service.py`) und Datenbank-Migration (`006_angebote.sql`) wurden Zeile für Zeile gegen die Frontend-TypeScript-Interfaces und deren Nutzung (`lib/api/angebote.ts`, `components/angebote/*.tsx`) verglichen — ergänzt um die pytest-Suite (Backend-Verhalten real ausgeführt, nicht nur gelesen).
+
+### Acceptance Criteria
+
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| 1 | Positionen hinzufügen/ändern/entfernen mit Menge, Einheit, Einzelpreis, Steuersatz, Rabatt (%/€) | **PASS** — Backend vollständig getestet (17 Tests, inkl. beider Rabatt-Typen + Validierungsgrenzen). `PositionInput`/`PositionCreate`-Feldnamen stimmen zwischen Frontend und Backend exakt überein. |
+| 2 | Netto-/Steuer-/Bruttosumme nachvollziehbar berechnet | **PASS** — `service.py::_totals`/`_position_netto_steuer` rundet je Position auf 2 Nachkommastellen vor der Summierung (Tests decken prozent + betrag ab). Frontend zeigt `angebot.netto_summe`/`steuer_summe`/`brutto_summe` direkt vom Server, Feldnamen stimmen. |
+| 3 | Angebot zeigt Nummer, Betriebs-/Kundendaten, Gültigkeitsdatum, Positionen, Summen, Freitext | **TEILWEISE FAIL** — Das PDF-Template (`templates/angebot_pdf.html`) selbst rendert alle geforderten Felder korrekt. Die In-App-Listenansicht zeigt die Angebotsnummer jedoch nicht (siehe BUG-1). |
+| 4 | Freigabeansicht zeigt Empfänger/Betreff/PDF/Summe; erst expliziter Klick sendet | **FAIL** — PDF-Vorschau bleibt leer (BUG-2), vom Nutzer editierte Empfänger-/Betreff-Werte werden serverseitig stillschweigend verworfen (BUG-3). Der Zwei-Klick-Mechanismus selbst (`freigabe` versendet nichts, erst `senden` versendet) ist korrekt implementiert. |
+| 5 | Nach Versand: PDF/Version/Empfänger/Zeitpunkt unveränderbar, Status → „Angebot offen" | **PASS (Backend)** — 409 auf PATCH/DELETE nach `status=versendet` getestet; `vorgaenge_service.update_vorgang(..., status="Angebot offen", ...)` wird im selben Service-Call ausgeführt und getestet. |
+| 6 | Entwürfe werden nie automatisch versendet | **PASS** — `senden` ist der einzige Endpunkt, der tatsächlich verschickt; kein automatischer Trigger im Code gefunden. |
+
+**Ergebnis: 4/6 PASS, 1 teilweise FAIL, 1 FAIL.**
+
+### Edge Cases
+
+| Edge Case | Ergebnis |
+|---|---|
+| Angebot ohne Position/Empfänger nicht freigebbar | **PASS** — Backend liefert 422 in beiden Fällen (getestet). Frontend deaktiviert den „Zur Freigabe"-Button bei 0 Positionen; fehlende Empfänger-E-Mail wird nicht vorab im UI geprüft, führt aber korrekt zur Backend-Fehlermeldung (kleinerer UX-Punkt, kein funktionaler Fail). |
+| Nach Versand nicht überschreibbar, nur neue Version | **PASS** — 409 auf Schreibzugriffe nach Versand + `neue-version`-Endpoint kopiert Positionen 1:1, alles getestet. |
+| Rundungsdifferenzen konsistent auf 2 Nachkommastellen | **PASS** — je Position gerundet, dann summiert; sowohl in `service.py` als auch im PDF-Format (`_de`) konsistent zweistellig. |
+| E-Mail-Versand-Fehler → Angebot bleibt Entwurf, zeigt „Angebot wurde nicht versendet." | **FAIL** — Backend-Verhalten selbst korrekt (Angebot bleibt `entwurf`, `fehler_text` gesetzt), aber die Frontend-Anzeige des Fehlers ist gebrochen (BUG-4, Critical — siehe unten). |
+
+### Security-Audit (Red-Team)
+- **Rollen-Guard:** Alle `/angebote*`- und `/vorgaenge/{id}/angebote`-Endpunkte verlangen `require_role("Buero","Inhaber")` — auch die Lesepfade (bewusste Abweichung vom `vorgaenge`-Muster, im Tech Design dokumentiert). `test_monteur_forbidden` bestätigt 403 für Monteur. Frontend blendet den gesamten Angebote-Bereich für Monteur aus (`kannSchreiben()`/`darfSchreiben`-Gate in `vorgang-detail.tsx`), konsistent mit dem Backend-Guard. **Kein Befund.**
+- **Cross-Tenant-Isolation (RLS):** `angebot`, `angebot_position`, `angebot_nummernkreis` haben je eine `ENABLE ROW LEVEL SECURITY` + `FOR ALL USING (mandant_id = current_setting('app.current_mandant_id')::uuid)`-Policy (`006_angebote.sql`). Jede Repository-Query übergibt zusätzlich `mandant_id` explizit als Parameter (Defense in Depth). `test_cross_tenant_angebot_not_visible` bestätigt: Mandant A erhält 404 beim Versuch, Mandant Bs Angebot zu lesen/ändern. Der Nummernkreis ist ebenfalls pro Mandant isoliert (`mandant_id UUID PRIMARY KEY`) — keine mandantenübergreifende Nummernvergabe möglich. **Kein Befund.**
+- **Audit-Log:** Jede Anlage/Positionsänderung/Freigabe-Vorbereitung/Versand/neue Version schreibt einen `vorgang_historie`-Eintrag mit `nutzer_id` + `created_at` (`ereignis`-Werte: `angebot_angelegt`, `angebot_geaendert`, `angebot_position_hinzugefuegt/geaendert/entfernt`, `angebot_freigabe_vorbereitet`, `angebot_versendet`, `angebot_neue_version`). Erfüllt das Technical Requirement „Audit: Freigabe und Versand werden mit Nutzer und Zeitpunkt protokolliert". **Kein Befund.**
+- **Serverseitige PDF-Erzeugung:** PDF wird ausschließlich aus in der DB gespeicherten Daten gerendert (`_build_pdf_bytes` liest immer über `repo.list_positionen`/`repo.get_angebot`, nie aus dem Request-Body) — ein manipulierter Client kann kein PDF mit abweichenden Summen erzwingen. **Kein Befund.**
+- **E-Mail-Injection über Freitext/Bezeichnung:** `EmailCompose`/`mailclient.send_message` nutzen die bestehenden PROJ-4-Pfade unverändert; keine neue Angriffsfläche durch PROJ-5 selbst identifiziert.
+- Keine Auth-Bypass-, JWT-Tamper- oder SQL-Injection-Befunde in den neuen Endpunkten (durchgehend parametrisierte Queries, Pydantic-Validierung vor jedem Service-Aufruf).
+
+### Gefundene Bugs
+
+**BUG-1 (High) — Angebot-Kopf-Felder zwischen Backend und Frontend nicht deckungsgleich benannt**
+- Backend (`AngebotListItem`/`AngebotDetail` in `schemas.py`) liefert `angebot_nummer`, `empfaenger_email`, `versendet_at`.
+- Frontend-Interface `Angebot`/`AngebotListItem` (`lib/api/angebote.ts`) erwartet `nummer`, `empfaenger`, `versendet_am`.
+- Auswirkung: In `vorgang-angebote.tsx` (Zeilen 306, 342) und `angebot-freigabe.tsx` (`angebot.nummer`) sind diese Felder zur Laufzeit `undefined` — die Angebotsnummer erscheint in der Liste und im Freigabe-Dialog-Titel nicht (leerer Text statt „AN-2026-0001").
+- Repro: `GET /vorgaenge/{id}/angebote` aufrufen → JSON enthält `angebot_nummer`; React-Code liest `a.nummer` → `undefined`.
+- Priorität: vor Deploy fixen (verletzt AC 3 sichtbar in der UI, auch wenn das PDF selbst korrekt ist).
+
+**BUG-2 (High) — PDF-Vorschau in der Freigabeansicht bleibt leer**
+- Backend `POST /angebote/{id}/freigabe` liefert `pdf_download_url` (`schemas.FreigabeResult`).
+- Frontend `FreigabeResult`-Interface und `angebot-freigabe.tsx` (`freigabe.pdf_url`) erwarten `pdf_url`.
+- Auswirkung: `<iframe src={freigabe.pdf_url}>` hat `src=undefined` → keine PDF-Vorschau sichtbar. Verletzt AC 4 direkt („Freigabeansicht … zeigt … PDF").
+- Priorität: vor Deploy fixen.
+
+**BUG-3 (Medium) — Editierte Empfänger-/Betreff-Werte in der Freigabeansicht werden ignoriert**
+- Frontend sendet `{empfaenger, betreff}` im Body von `POST /angebote/{id}/freigabe`.
+- Backend-Route `freigabe(angebot_id, user)` (`routes.py:73-75`) hat **keinen Body-Parameter** — FastAPI bindet den gesendeten JSON-Body an nichts, er wird stillschweigend verworfen. Der Service berechnet Empfänger immer aus der Kunden-E-Mail und den Betreff immer als festen String `f"Angebot {angebot_nummer}"`.
+- `POST /angebote/{id}/senden` wird vom Frontend zudem ganz ohne Body aufgerufen (`angebotSenden(id)` in `lib/api/angebote.ts:132-134`), obwohl `SendenRequest` optionale `empfaenger`/`betreff`/`text`-Felder vorsieht.
+- Auswirkung: Die AC-Formulierung „Empfänger und Betreff … editierbar" ist nicht erfüllt — Nutzereingaben haben keine Wirkung, ohne dass ein Fehler angezeigt wird (kein Hinweis, dass die Eingabe ignoriert wurde).
+- Priorität: vor Deploy klären (entweder Backend-Body-Parameter ergänzen und tatsächlich verwenden, oder Frontend-Felder als rein informativ/read-only kennzeichnen).
+
+**BUG-4 (Critical) — Fehlgeschlagener Versand wird im Frontend als Erfolg behandelt**
+- Backend `senden()` fängt jede Exception aus `send_vorgang_email` ab und gibt bei Fehlschlag **HTTP 200** mit `{angebot, versendet: false, fehler_text: "Angebot wurde nicht versendet."}` zurück (`service.py:289-295`) — kein Non-2xx-Status.
+- Frontend `apiFetch` (`lib/api/client.ts:41-45`) wirft nur bei `!res.ok` einen `ApiError`. Da die Antwort 200 ist, wirft `angebotSenden()` **nie** — der `catch`-Block in `angebot-freigabe.tsx::onSenden` (der die Fehlermeldung „Angebot wurde nicht versendet." anzeigen soll) wird nie erreicht.
+- Zusätzlich liest `onSenden()` das Response-Objekt gar nicht aus (`await angebotSenden(angebot.id); onOpenChange(false); onVersendet();`) — selbst bei einer erfolgreichen Antwort mit `versendet: false` schließt das Frontend den Dialog und meldet dem Nutzer optisch Erfolg.
+- Auswirkung: **Direkter Verstoß gegen den explizit geforderten Edge Case** „Fällt der E-Mail-Versand fehl, bleibt das Angebot ein Entwurf und zeigt „Angebot wurde nicht versendet."" — der Nutzer bekommt fälschlich signalisiert, das Angebot sei versendet worden, obwohl es (korrekt) als Entwurf im System verblieben ist. Führt zu falscher Kundenerwartung (Kunde erhält kein Angebot, Büro glaubt, es sei raus).
+- Repro: `send_vorgang_email` mocken, um eine Exception zu werfen (wie im Backend-Test `test_senden_failure_keeps_entwurf` bereits getan) → Response ist 200 mit `versendet:false` → im Browser würde der Freigabe-Dialog trotzdem schließen und `laden()` aufrufen, ohne Fehlermeldung.
+- Priorität: **vor Deploy zwingend fixen** (Frontend muss `versendet`/`fehler_text` aus der 200-Antwort auswerten, nicht nur auf HTTP-Fehlerstatus reagieren).
+
+### Production-Ready-Empfehlung: **NOT READY**
+Grund: 1 Critical-Bug (BUG-4) und 2 High-Bugs (BUG-1, BUG-2) offen — reine Backend/API-Vertrags-Drift, weil Frontend (abc-frontend) vor dem Backend gebaut und nie gegen den echten Server verifiziert wurde (im Frontend Implementation Notes selbst so vermerkt). Backend-Logik selbst ist solide (118/118 Tests grün, RLS/Rollen/Audit ohne Befund). Alle vier Bugs sind reine Frontend-Integrations-Fixes (Feldnamen angleichen, Response-Handling in `onSenden` korrigieren) — kein Architektur- oder Datenmodell-Problem.
+
+**Status bleibt „In Review".** Empfehlung: Fixes an Frontend Developer routen (`lib/api/angebote.ts` Feldnamen an `schemas.py` angleichen, `onSenden`/`FreigabeResult`-Handling korrigieren), danach `/abc-qa` erneut für einen vollen Retest inkl. Browser-Smoke, sobald ein laufender Stack verfügbar ist.
+
+## Frontend Bugfix Notes (Frontend Developer, nach QA)
+
+**Branch:** `specs/PROJ-5-angebote-pdf-freigabe-und-versand`. Alle vier von QA gefundenen Bugs sind reine Frontend-Integrations-Fixes; Backend wurde für diese Session nicht verändert.
+
+- **BUG-4 (Critical) — gefixt.** `components/angebote/angebot-freigabe.tsx::onSenden` liest jetzt den Response-Body von `POST /angebote/{id}/senden` (`SendenResult { angebot, versendet, fehler_text }`) statt nur auf den HTTP-Status zu reagieren. Bei `versendet === false` wird `fehler_text` (bzw. Fallback „Angebot wurde nicht versendet.") als Fehler angezeigt, der Dialog bleibt offen, `onVersendet()`/Schließen erfolgt nur bei `versendet === true`. `lib/api/angebote.ts::angebotSenden` gibt jetzt `Promise<SendenResult>` zurück (vorher fälschlich `Promise<Angebot>`).
+- **BUG-1 (High) — gefixt.** Frontend-Typen (`Angebot`, `AngebotListItem` in `lib/api/angebote.ts`) an die echten Backend-Feldnamen aus `schemas.py` angeglichen: `nummer` → `angebot_nummer`, `empfaenger` → `empfaenger_email`, `versendet_am` → `versendet_at`. Ungenutztes `versendet_von` (kein Backend-Feld) entfernt. Zugriffe in `components/angebote/vorgang-angebote.tsx` (Zeilen ~306, ~342) und `angebot-freigabe.tsx` (Dialog-Titel, Formular-Default) angepasst. Zusätzlich (nicht von QA gemeldet, beim Angleichen aufgefallen): `AngebotPosition.reihenfolge` existierte im Frontend-Typ nicht im Backend (`PositionRead.sortierung`) — umbenannt; war folgenlos, da nirgends gelesen.
+- **BUG-2 (High) — gefixt.** `FreigabeResult.pdf_url` → `pdf_download_url` (Typ + `angebot-freigabe.tsx`-iframe-`src`), passend zu `schemas.FreigabeResult.pdf_download_url`.
+- **BUG-3 (Medium) — teilweise gefixt, Rest ist ein Backend-Gap.** Zwei getrennte Ursachen:
+  1. `POST /angebote/{id}/senden` wurde ohne Body aufgerufen, obwohl `SendenRequest` optionale `empfaenger`/`betreff`/`text`-Overrides vorsieht und die Backend-Tests immer `json={}` schicken (ein Body ist also erforderlich, auch wenn leer). Gefixt: `angebotSenden(id, overrides)` schickt jetzt immer einen JSON-Body; `angebot-freigabe.tsx` übergibt die vom Nutzer im Vorbereiten-Formular editierten `empfaenger`/`betreff`-Werte als Override an `senden`. Der tatsächliche Versand respektiert damit editierte Werte.
+  2. **Nicht im Frontend lösbar:** `POST /angebote/{id}/freigabe` (Vorschau-Endpunkt) hat serverseitig **keinen Body-Parameter** (`routes.py::freigabe(angebot_id, user)` — kein `payload`). Ein vom Client gesendeter Body wird von FastAPI mangels passendem Dependency-Parameter stillschweigend verworfen, ohne Fehler. Die PDF-Vorschau und die angezeigten Empfänger/Betreff-Werte im Freigabe-Dialog kommen daher immer aus den Server-Defaults (Kunden-E-Mail, fester Betreff-String) und **können nicht editiert werden, solange die Route keinen Body-Parameter akzeptiert**. Das Frontend schickt den editierten Wert weiterhin mit (falls das Backend künftig einen `payload: FreigabeRequest`-Parameter bekommt, greift der Fix ohne weitere Frontend-Änderung), zeigt aber aktuell zwangsläufig die Server-generierte Vorschau. **Empfehlung an Backend Developer:** `FreigabeRequest`-Schema (analog `SendenRequest`) ergänzen und in `service.freigabe()` verwenden, falls die AC „Empfänger und Betreff editierbar" bereits in der Vorschau gelten soll.
+
+**Geänderte Dateien:** `nextjs_app/lib/api/angebote.ts`, `nextjs_app/components/angebote/angebot-freigabe.tsx`, `nextjs_app/components/angebote/vorgang-angebote.tsx`.
+
+**Tests nach Fix:** `npm run test` → 6 Suiten / 27 Tests grün. `npx next lint` → 0 Errors/Warnings. `npx tsc --noEmit` → keine Fehler. (Kein neuer Contract-/Component-Test gegen echte Backend-Shapes ergänzt — bleibt offene Test-Lücke, siehe QA-Hinweis oben.)
+
+**Status:** bleibt „In Review" — Empfehlung: erneuter `/abc-qa`-Pass (idealerweise mit laufendem Docker-Stack für Browser-Smoke) vor Freigabe für Deploy.
 
 ## Deployment
 _To be added by /deploy_

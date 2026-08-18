@@ -15,13 +15,13 @@ export interface AngebotPosition {
   rabatt_typ: RabattTyp;
   rabatt_wert: number;
   positions_summe: number;
-  reihenfolge: number;
+  sortierung: number;
 }
 
 export interface Angebot {
   id: string;
   vorgang_id: string;
-  nummer: string;
+  angebot_nummer: string;
   version: number;
   status: AngebotStatus;
   gueltig_bis: string | null;
@@ -29,9 +29,8 @@ export interface Angebot {
   netto_summe: number;
   steuer_summe: number;
   brutto_summe: number;
-  empfaenger: string | null;
-  versendet_am: string | null;
-  versendet_von: string | null;
+  empfaenger_email: string | null;
+  versendet_at: string | null;
   positionen: AngebotPosition[];
   created_at: string;
   updated_at: string;
@@ -39,11 +38,11 @@ export interface Angebot {
 
 export interface AngebotListItem {
   id: string;
-  nummer: string;
+  angebot_nummer: string;
   version: number;
   status: AngebotStatus;
   brutto_summe: number;
-  versendet_am: string | null;
+  versendet_at: string | null;
   created_at: string;
 }
 
@@ -63,12 +62,18 @@ export interface KopfdatenInput {
 }
 
 export interface FreigabeResult {
-  empfaenger: string;
+  empfaenger: string | null;
   betreff: string;
   netto_summe: number;
   steuer_summe: number;
   brutto_summe: number;
-  pdf_url: string;
+  pdf_download_url: string;
+}
+
+export interface SendenResult {
+  angebot: Angebot;
+  versendet: boolean;
+  fehler_text: string | null;
 }
 
 /** GET /vorgaenge/{id}/angebote — alle Versionen, neueste zuerst. */
@@ -117,7 +122,12 @@ export function getAngebotPdfUrl(id: string): Promise<{ download_url: string }> 
   return apiFetch<{ download_url: string }>(`/angebote/${id}/pdf`);
 }
 
-/** POST /angebote/{id}/freigabe — prüft Positionen+Empfänger, erzeugt PDF-Vorschau, versendet nichts. */
+/**
+ * POST /angebote/{id}/freigabe — prüft Positionen+Empfänger, erzeugt PDF-Vorschau, versendet nichts.
+ * BUG-3 (Spec-Notiz): Die Backend-Route nimmt keinen Body entgegen — editierte Empfänger/Betreff-Werte
+ * werden hier serverseitig ignoriert (Vorschau nutzt immer Kunden-E-Mail + festen Betreff). Wird trotzdem
+ * mitgeschickt, damit ein künftiger Backend-Fix ohne Frontend-Änderung greift; siehe Bugfix-Notes.
+ */
 export function angebotFreigeben(
   id: string,
   input: { empfaenger: string; betreff: string },
@@ -128,9 +138,15 @@ export function angebotFreigeben(
   });
 }
 
-/** POST /angebote/{id}/senden — einziger Endpunkt, der tatsächlich versendet. */
-export function angebotSenden(id: string): Promise<Angebot> {
-  return apiFetch<Angebot>(`/angebote/${id}/senden`, { method: "POST" });
+/** POST /angebote/{id}/senden — einziger Endpunkt, der tatsächlich versendet; Overrides optional. */
+export function angebotSenden(
+  id: string,
+  overrides: { empfaenger?: string; betreff?: string; text?: string } = {},
+): Promise<SendenResult> {
+  return apiFetch<SendenResult>(`/angebote/${id}/senden`, {
+    method: "POST",
+    body: JSON.stringify(overrides),
+  });
 }
 
 /** POST /angebote/{id}/neue-version — nur auf versendetem Angebot, kopiert Positionen in neuen Entwurf. */
