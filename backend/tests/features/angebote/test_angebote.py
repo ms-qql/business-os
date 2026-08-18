@@ -259,3 +259,22 @@ def test_numbering_survives_rollback(mandant):
     assert n1 != n2
     assert n1.endswith("0001")
     assert n2.endswith("0002")
+
+
+def test_totals_with_decimal_db_values(mandant):
+    # DB liefert NUMERIC-Spalten als Decimal. _totals darf nicht mit
+    # float += Decimal abbrechen (PROJ-Fix angebote/service.py).
+    from decimal import Decimal
+
+    positionen = [
+        {"menge": Decimal("2"), "einzelpreis": Decimal("80.00"),
+         "rabatt_typ": "prozent", "rabatt_wert": Decimal("10"),
+         "steuersatz": Decimal("19.00")},
+        {"menge": Decimal("1"), "einzelpreis": Decimal("100.00"),
+         "rabatt_typ": "betrag", "rabatt_wert": Decimal("20.00"),
+         "steuersatz": Decimal("19.00")},
+    ]
+    netto, steuer, brutto = angebote_service._totals(positionen)
+    assert isinstance(netto, float) and isinstance(brutto, float)
+    assert netto == 224.0  # 144 + 80
+    assert brutto == 266.56  # 224 + 42.56

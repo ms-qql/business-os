@@ -46,13 +46,18 @@ def _validate_rabatt(menge: float, einzelpreis: float, rabatt_typ: str, rabatt_w
 
 
 def _position_netto_steuer(p: dict) -> tuple[float, float]:
-    basis = p["menge"] * p["einzelpreis"]
+    # ponytail: DB liefert Decimal für NUMERIC-Spalten -> coerce zu float, sonst float+=Decimal
+    menge = float(p["menge"])
+    einzelpreis = float(p["einzelpreis"])
+    rabatt_wert = float(p["rabatt_wert"])
+    steuersatz = float(p["steuersatz"])
+    basis = menge * einzelpreis
     if p["rabatt_typ"] == "prozent":
-        netto = basis * (1 - p["rabatt_wert"] / 100)
+        netto = basis * (1 - rabatt_wert / 100)
     else:
-        netto = basis - p["rabatt_wert"]
+        netto = basis - rabatt_wert
     netto = round(netto, 2)
-    steuer = round(netto * p["steuersatz"] / 100, 2)
+    steuer = round(netto * steuersatz / 100, 2)
     return netto, steuer
 
 
