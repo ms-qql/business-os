@@ -1,8 +1,9 @@
 # PROJ-6: Terminplanung und Teamzuweisung
 
-## Status: Architected
+## Status: In Progress (Frontend implementiert, Backend offen)
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-18
+**Frontend-Stand:** 2026-08-18 — Next.js 16 + shadcn/ui, gebaut & typegeprüft. Backend (Migrations + Routen) noch offen (siehe Handoff).
 
 ## Dependencies
 - Requires: PROJ-3 — Vorgang und zugehörige Adresse.
@@ -152,6 +153,36 @@ Delegiert an Explore-Agent (10 gezielte Prüfpunkte). Ergebnis: `require_role(*r
 
 ### Offene Fragen
 Keine. Alle Funde waren technische Lücken (fixable ohne Produktentscheidung), keine ambige Geschäftslogik.
+
+### Frontend-Implementierung (/abc-frontend, 2026-08-18)
+
+**Stack-Abweichung vom Template:** Das Skill-Template nennt Flutter + shadcn_flutter; dieses Projekt ist
+faktisch Next.js 16 (App Router) + shadcn/ui (React) + Tailwind (bestätigt durch PRD + Code). Das Frontend
+folgt dem **realen** Stack, analog zu PROJ-3/5.
+
+**Neue Dateien (Next.js):**
+- `lib/zeit.ts` — Zeit-Helfer: einheitliche Zeitzone Europa/Berlin (AC-7), Wochenstart/-tage, ISO-Konvertierung.
+- `lib/schemas/termin.ts` — Zod-Schema für Termin-Dialog (Pflicht Beginn/Ende, `ende > beginn`).
+- `lib/api/termine.ts` — API-Client exakt nach Tech-Design-Endpunkten (inkl. `konflikt`-Flag AC-4, eingebetteter Kontakt AC-5, Nested-Route `/vorgaenge/{id}/termine`).
+- `components/termine/termin-dialog.tsx` — Anlegen/Bearbeiten (Vorgang-, Monteur-Mehrfachauswahl, Zeit).
+- `components/termine/termin-absagen-dialog.tsx` — Absage-Bestätigung (markiert ausgegraut, löscht nicht).
+- `components/termine/termin-kalender.tsx` — Wochenansicht (Spalte/Monteur, max. 3, Konflikt rot) + Tagesansicht (mobil ab 375 px).
+- `components/termine/monteur-ansicht.tsx` — Monteuransicht (eigene Termine, Kontakt eingebettet, ohne Preise, read-only).
+- `components/termine/termin-uebersicht.tsx` — Orchestrierung Büro/Inhaber (Kalender + Dialoge + Datenladung).
+- `components/termine/vorgang-termine.tsx` — Termine-Sektion im Vorgang (Nested-Einstieg, wie PROJ-5 Angebote).
+- `app/(app)/termine/page.tsx` — Termine-Route, rollenabhängig (Monteur → eigene Ansicht, sonst Kalender).
+
+**Anpassungen bestehender Dateien:**
+- `lib/theme/tokens.ts` — `NAV_RECHTE` um `termine` für Inhaber/Büro/Monteur ergänzt.
+- `app/(app)/layout.tsx` — Navigation: ICON/LABEL/PATH für `termine` hinzugefügt.
+- `components/vorgaenge/vorgang-detail.tsx` — `VorgangTermine` als Card eingebettet (nur Schreibberechtigte).
+
+**Verifiziert:** `npx tsc --noEmit` sauber, `npm run build` erfolgreich (Route `/termine` erzeugt).
+
+**Offen / Handoff:** Backend (Migrations `007_termine.sql` + Feature-Modul `backend/app/features/termine/`)
+noch nicht gebaut — siehe Tech Design, Abschnitt „Neue Migrationsdatei" und „API-Form". Das Frontend
+erwartet exakt die dort spezifizierten Endpunkte/Felder (insb. `konflikt`/`konflikt_monteure`, eingebetteter
+`kontakt` in `GET /termine/{id}`).
 
 ## QA Test Results
 _To be added by /qa_
