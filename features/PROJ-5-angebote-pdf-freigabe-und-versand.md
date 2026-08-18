@@ -1,6 +1,6 @@
 # PROJ-5: Angebote, PDF, Freigabe und Versand
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -329,6 +329,65 @@ Grund: 1 Critical-Bug (BUG-4) und 2 High-Bugs (BUG-1, BUG-2) offen — reine Bac
 **Tests nach Fix:** `npm run test` → 6 Suiten / 27 Tests grün. `npx next lint` → 0 Errors/Warnings. `npx tsc --noEmit` → keine Fehler. (Kein neuer Contract-/Component-Test gegen echte Backend-Shapes ergänzt — bleibt offene Test-Lücke, siehe QA-Hinweis oben.)
 
 **Status:** bleibt „In Review" — Empfehlung: erneuter `/abc-qa`-Pass (idealerweise mit laufendem Docker-Stack für Browser-Smoke) vor Freigabe für Deploy.
+
+## QA Retest (nach Bugfix-Runde)
+**Getestet:** 2026-08-18 · Branch `specs/PROJ-5-angebote-pdf-freigabe-und-versand`, Commit `d6c9575`
+
+### Methodik
+Unabhängige Verifikation — nicht der Bugfix-Bericht wurde übernommen, sondern erneut Backend-Response-Schemas (`backend/app/features/angebote/schemas.py`, `service.py`, `routes.py`) Zeile für Zeile gegen Frontend-Nutzung (`nextjs_app/lib/api/angebote.ts`, `components/angebote/angebot-freigabe.tsx`, `components/angebote/vorgang-angebote.tsx`) gelesen, plus vollständiger automatisierter Testlauf (Backend + Frontend) plus Wiederholung aller 6 AC + 4 Edge Cases + Security-Spotcheck.
+
+### Automatisierte Tests
+- Backend: `conda run -n Dashboard --no-capture-output python -m pytest backend/tests` → **119 passed** (118 vorher + 1 neuer Test `test_freigabe_accepts_empfaenger_betreff_override`), keine Fehler.
+- Frontend: `npm run test` → **6 Suiten / 27 Tests grün**. `npx next lint` → 0 Errors/0 Warnings. `npx tsc --noEmit` → keine Fehler.
+- `git show d6c9575 --stat` bestätigt: Diff beschränkt sich exakt auf die vier gemeldeten Bugs (`angebote/routes.py`, `schemas.py`, `service.py`, `angebot-freigabe.tsx`, `vorgang-angebote.tsx`, `lib/api/angebote.ts` + Tests/Doku) — keine unbeabsichtigten Nebenänderungen, RLS-Migration (`006_angebote.sql`) nicht angefasst.
+
+### Bug-Verifikation (Codeabgleich, nicht nur Selbstauskunft)
+
+**BUG-1 (High, Feldnamen-Drift) — verifiziert geschlossen.**
+Backend `AngebotListItem`/`AngebotDetail` (`backend/app/features/angebote/schemas.py:57-71`) liefert `angebot_nummer`, `empfaenger_email`, `versendet_at`. Frontend-Interfaces `Angebot`/`AngebotListItem` (`nextjs_app/lib/api/angebote.ts:21-47`) verwenden exakt dieselben Feldnamen. Nutzung bestätigt: `vorgang-angebote.tsx:306` (`a.angebot_nummer` beim Listen-Append), `vorgang-angebote.tsx:342` (`{a.angebot_nummer}` in der Liste), `angebot-freigabe.tsx:45` (`angebot.angebot_nummer` im Dialog-Titel/Default-Betreff). `sortierung` (statt vorherigem `reihenfolge`) stimmt ebenfalls überein (`schemas.py:53` ↔ `angebote.ts:18`).
+
+**BUG-2 (High, pdf_url) — verifiziert geschlossen.**
+Backend `FreigabeResult.pdf_download_url` (`schemas.py:87`). Frontend `FreigabeResult.pdf_download_url` (`lib/api/angebote.ts:70`) und `angebot-freigabe.tsx:124` (`<iframe src={freigabe.pdf_download_url}>`) — Feldname und Nutzung stimmen überein, PDF-Vorschau bekommt eine echte URL.
+
+**BUG-3 (Medium, fehlender freigabe-Body) — verifiziert geschlossen.**
+Backend `routes.py:73-76`: `freigabe(angebot_id, payload: schemas.FreigabeRequest | None = None, user=...)` nimmt jetzt einen optionalen Body entgegen; `service.py:230-264` (`freigabe(user, angebot_id, payload=None)`) verwendet `payload.empfaenger`/`payload.betreff` als Override vor dem Kunden-Default. Frontend `angebot-freigabe.tsx:56-67` (`onVorbereiten`) ruft `angebotFreigeben(angebot.id, values)` mit den editierten Formularwerten auf (`lib/api/angebote.ts:131-139` sendet `input` als JSON-Body). Rundschluss bestätigt: editierte Empfänger-/Betreff-Werte wirken jetzt tatsächlich auf die Vorschau, nicht nur auf `senden`. Neuer Backend-Test `test_freigabe_accepts_empfaenger_betreff_override` deckt das ab (in Testlauf enthalten).
+
+**BUG-4 (Critical, falsches Erfolgssignal) — verifiziert geschlossen.**
+`angebot-freigabe.tsx:69-93` (`onSenden`) liest jetzt `result.versendet`/`result.fehler_text` aus dem Response-Body (`angebotSenden` gibt `Promise<SendenResult>` zurück, `lib/api/angebote.ts:142-150`, `SendenResult`-Typ mit `versendet: boolean`/`fehler_text: string | null` deckungsgleich mit Backend `schemas.SendenResult`, `schemas.py:105-108`). Bei `!result.versendet` wird `setError(result.fehler_text ?? "Angebot wurde nicht versendet.")` gesetzt, der Dialog bleibt offen (kein `onOpenChange(false)`/`onVersendet()`-Aufruf in diesem Zweig) — Erfolg wird nur bei `versendet === true` signalisiert. Bestätigt anhand Backend-Verhalten `service.py:290-296` (Exception aus `send_vorgang_email` → HTTP 200 mit `versendet: False`, `fehler_text` gesetzt) und Frontend-Auswertung im Body statt HTTP-Status.
+
+### Acceptance Criteria (vollständiger Retest)
+
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| 1 | Positionen hinzufügen/ändern/entfernen mit Menge, Einheit, Einzelpreis, Steuersatz, Rabatt (%/€) | **PASS** — unverändert seit letztem Pass, Feldnamen stimmen weiterhin exakt, 119 Backend-Tests grün. |
+| 2 | Netto-/Steuer-/Bruttosumme nachvollziehbar berechnet | **PASS** — unverändert, `SummenBlock` liest `netto_summe`/`steuer_summe`/`brutto_summe` direkt vom Server. |
+| 3 | Angebot zeigt Nummer, Betriebs-/Kundendaten, Gültigkeitsdatum, Positionen, Summen, Freitext | **PASS** — BUG-1 behoben: Listen- und Dialog-Ansicht zeigen die Angebotsnummer jetzt korrekt (`vorgang-angebote.tsx:342`, `angebot-freigabe.tsx:45`). |
+| 4 | Freigabeansicht zeigt Empfänger/Betreff/PDF/Summe; erst expliziter Klick sendet | **PASS** — BUG-2 (PDF-URL) und BUG-3 (Overrides) behoben; Zwei-Klick-Mechanismus weiterhin korrekt (`freigabe` versendet nichts, erst `senden`). |
+| 5 | Nach Versand: PDF/Version/Empfänger/Zeitpunkt unveränderbar, Status → „Angebot offen" | **PASS** — unverändert, 409-Guard + Statuswechsel weiterhin getestet. |
+| 6 | Entwürfe werden nie automatisch versendet | **PASS** — unverändert, `senden` einziger versendender Endpunkt. |
+
+**Ergebnis: 6/6 PASS.**
+
+### Edge Cases (vollständiger Retest)
+
+| Edge Case | Ergebnis |
+|---|---|
+| Angebot ohne Position/Empfänger nicht freigebbar | **PASS** — Backend 422 in beiden Fällen (unverändert, getestet). Frontend deaktiviert „Zur Freigabe" bei 0 Positionen (`vorgang-angebote.tsx:254`); fehlender Empfänger führt weiterhin korrekt zur Backend-Fehlermeldung im Formular (kein blockierender Fund, wie zuvor). |
+| Nach Versand nicht überschreibbar, nur neue Version | **PASS** — unverändert, 409 + `neue-version`-Kopie getestet. |
+| Rundungsdifferenzen konsistent auf 2 Nachkommastellen | **PASS** — unverändert, `_totals`/`_position_netto_steuer` je Position gerundet. |
+| E-Mail-Versand-Fehler → Angebot bleibt Entwurf, zeigt „Angebot wurde nicht versendet." | **PASS** — BUG-4 behoben: Frontend liest jetzt `versendet`/`fehler_text` aus dem Body, zeigt die Fehlermeldung, Dialog bleibt offen, kein falsches Erfolgssignal mehr. |
+
+### Security-Re-Spotcheck (Cross-Tenant / RLS)
+- `006_angebote.sql` im Bugfix-Commit **nicht verändert** (`git show d6c9575 --stat` bestätigt) — RLS-Policies auf `angebot`/`angebot_position`/`angebot_nummernkreis` unverändert gegenüber dem bereits geprüften ersten QA-Pass.
+- `require_role("Buero","Inhaber")` weiterhin auf allen `/angebote*`-Routen (`routes.py:12`, unverändert außer dem neuen optionalen `payload`-Parameter bei `freigabe`).
+- Neuer `FreigabeRequest`-Body (`empfaenger: EmailStr | None`, `betreff`) ist Pydantic-validiert (`schemas.py:90-92`), kein Free-Text-Injection-Risiko, keine `mandant_id` im Body — weiterhin ausschließlich aus dem Token.
+- 119 Backend-Tests inkl. `test_cross_tenant_angebot_not_visible` weiterhin grün — keine Regression an der Tenant-Isolation durch die Bugfix-Änderungen.
+- **Kein neuer Befund.**
+
+### Production-Ready-Empfehlung: **READY**
+Alle vier gemeldeten Bugs sind durch unabhängigen Codeabgleich (Feldnamen 1:1, Response-Shapes 1:1, Kontrollfluss der Fehlerbehandlung) verifiziert geschlossen — nicht nur laut Bugfix-Bericht übernommen. 6/6 AC PASS, 4/4 Edge Cases PASS, keine offenen Critical/High/Medium-Bugs. Automatisierte Suiten vollständig grün (119 Backend-, 27 Frontend-Tests, Lint, `tsc`). Kein Browser-Smoke gegen einen laufenden Docker-Stack durchgeführt (kein Stack in dieser Session verfügbar) — empfohlen als optionaler Zusatz-Check vor Deploy via `/abc-qa-e2e`, ist aber kein Blocker für „Approved", da der Vertragsabgleich lückenlos und die automatisierten Tests vollständig sind.
+
+**Status: Approved.**
 
 ## Deployment
 _To be added by /deploy_

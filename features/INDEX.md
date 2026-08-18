@@ -8,7 +8,7 @@
 | PROJ-2 | Geführte SHK-Website, Branding und Anfrageformular | P0 | Deployed | PROJ-1 | Branding-Settings und Logo-Speicher; Website neu |
 | PROJ-3 | Kunden, Objekte, Vorgänge und Dokumente | P0 | Deployed | PROJ-1 | Deployed 2026-08-17, v0.1.2 · biz.app.msce.info; QA bestanden 6/6 AC, Security-Audit ohne Befund, BUG-1 gefixt+retestet |
 | PROJ-4 | E-Mail-Inbox und Vorgangskommunikation | P0 | Approved | PROJ-1, PROJ-3 | IMAP/SMTP, MIME, Polling und Fehlerlogik extrahieren |
-| PROJ-5 | Angebote: Positionen, PDF, Freigabe und Versand | P0 | In Review | PROJ-3, PROJ-4 | Versand- und Speicherpfade; Angebotslogik/PDF neu |
+| PROJ-5 | Angebote: Positionen, PDF, Freigabe und Versand | P0 | Approved | PROJ-3, PROJ-4 | Versand- und Speicherpfade; Angebotslogik/PDF neu |
 | PROJ-6 | Terminplanung und Teamzuweisung | P0 | Planned | PROJ-3 | Kalender- und Verfügbarkeitsablauf als Vorlage |
 | PROJ-7 | Begleitetes Onboarding: Betriebsdaten, Branding und Postfach | P0 | Planned | PROJ-1, PROJ-2, PROJ-4 | Postfach-Tests und Settings als Vorlage |
 | PROJ-8 | PDF-Rechnungen und Rechnungsdokumente | P0 | Planned | PROJ-3, PROJ-5 | Speicher- und Versandpfade; Rechnungsvorlage neu |
