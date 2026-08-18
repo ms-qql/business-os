@@ -48,7 +48,74 @@ PROJ-3 hat bereits ein minimales `vorgang.zugewiesener_nutzer_id` (eine Monteur-
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+**Erstellt:** 2026-08-18 · **Stack:** Next.js 16 + FastAPI + PostgreSQL (RLS) + MinIO · **Branch:** specs/PROJ-6-terminplanung-und-teamzuweisung
+
+> Hinweis zum Stack: Das Skill-Template nennt Flutter web + shadcn_flutter. Dieses Projekt ist faktisch Next.js 16 (App Router) + shadcn/ui (React) + Tailwind, bestätigt durch PRD und bestehenden Code (PROJ-3/5). Das Design folgt dem **realen** Stack, nicht dem Template-Text.
+
+### Grundlage im Code (verifiziert, nicht angenommen)
+- PROJ-1 liefert die Rollen `Inhaber`/`Büro`/`Monteur`, die mandantengetrennte JWT-Sitzung und den `require_role(*roles)`-Guard (`backend/app/deps.py:68`) — wird unverändert für die Schreibrechte dieses Features genutzt.
+- PROJ-1/PROJ-3 liefern das RLS-Muster: jede Fachtabelle trägt `mandant_id` und ist auf `current_setting('app.current_mandant_id')` begrenzt; Wiederholung in `backend/sql/003_kunden_vorgaenge.sql`.
+- PROJ-3 liefert das Vorgang-Modell: Status-Enum inkl. „Termin geplant", das Feld `vorgang.zugewiesener_nutzer_id` (Vorgriff auf Vorgangsebene) und die `vorgang_historie` mit Ereignis-Codes (`status_geaendert`, `zugewiesen` usw.).
+- Der Migrations-Runner `backend/apply_migrations.py` wendet `backend/sql/00X_*.sql` idempotent an (IF NOT EXISTS) — neues SQL folgt exakt diesem Muster.
+- Router-Registration erfolgt zentral in `backend/app/main.py:25-36` via `app.include_router(...)`.
+- Die shadcn-Primitive `table`, `dialog`, `select`, `badge` existieren bereits unter `nextjs_app/components/ui/`; ein Kalender-Primitive existiert **nicht**.
+- Explore-Ergebnis: `grep -rn "termin"` über Backend + Frontend liefert null Treffer (außer Status-String) — PROJ-6 ist Greenfield, baut sauber auf obigen Mustern auf, keine Konflikte mit bestehenden Routen/Tabellen.
+
+### Ziel und Umfang
+PROJ-6 macht aus einem Vorgang einen oder mehrere Termine und ordnet jeden Termin einem oder mehreren Monteuren zu. Kalenderansicht (Tag/Woche, max. drei Monteure), nicht-blockierende Konfliktwarnung, und eine auf den Monteur begrenzte Ansicht (ohne Preise). PROJ-3s Vorgangsebenen-Zuweisung bleibt unberührt — beide Ebenen koexistieren.
+
+### Komponentenstruktur (Next.js, PM-lesbar)
+
+```text
+Termine (neuer Navigationspunkt „Termine", nur Inhaber/Büro sichtbar)
+├── Wochenansicht
+│   ├── Spalte pro Monteur (maximal drei; Auswahl bei >3)
+│   ├── Terminblock (Beginn–Ende, Vorgang-Anliegen)
+│   └── Konflikt-Markierung (rot) bei Überschneidung desselben Monteurs
+├── Tagesansicht (mobile, ab 375 px; primär Monteuransicht)
+├── Termin-Dialog (Anlegen/Bearbeiten)
+│   ├── Vorgang-Wahl (verknüpft einen Vorgang)
+│   ├── Beginn / Ende (Datumszeit, Europa/Berlin)
+│   ├── Adresse (Objektadresse des Kunden oder Freitext; „Adresse offen"-Hinweis)
+│   ├── Monteur-Mehrfachauswahl (nur Rolle Monteur, deaktivierte ausgeblendet)
+│   └── Notiz
+├── Absage-Bestätigung (markiert Termin ausgegraut, löscht nicht)
+└── Monteuransicht (nur eigene Termine: Adresse, Kontakt, Anliegen, freigegebene Anhänge)
+```
+
+### Datenmodell (Klartext, keine SQL)
+- **Termin:** gehört zu genau einem Vorgang (Fremdschlüssel), trägt den Mandanten, Beginn, Ende, optionale Adresse (Freitext oder Objektadresse), Notiz, ein „abgesagt"-Kennzeichen und Zeitstempel. Alle Zeiten werden einheitlich als Europa/Berlin gespeichert.
+- **Termin-Zuweisung:** verknüpft einen Termin mit einem Nutzer der Rolle Monteur im selben Mandanten; ein Termin kann mehrere Zuweisungen haben (1:n). Deaktivierte Nutzer können nicht neu zugewiesen werden; bestehende Zuweisungen bleiben nachvollziehbar.
+- **Vorgang:** bleibt bis auf den Status unverändert. Das Anlegen eines offenen Termins setzt den Vorgang auf „Termin geplant"; die Absage des letzten offenen Termins setzt den Status auf den vorherigen Wert zurück — und dieser Wechsel wird in der Vorgangshistorie festgehalten.
+- **Vorgangshistorie:** erhält neue Ereignis-Codes (Termin angelegt, Termin geändert, Termin abgesagt, Termin zugewiesen/entzogen).
+- Keine Dateien in PROJ-6: etwaige Anhänge werden aus dem zugehörigen Vorgang (PROJ-3/MinIO) angezeigt; PROJ-6 legt keinen eigenen Speicherpfad an.
+
+### API-Form (Endpunkte, keine Implementierung)
+- `GET /termine?von=&bis=` → Termine des Mandanten im Kalenderfenster (Wochenansicht lädt nur den sichtbaren Zeitraum).
+- `POST /termine` → Termin anlegen (Vorgang, Beginn, Ende, Adresse optional, Notiz, Monteure[]).
+- `GET /termine/{id}` → einen Termin mit seinen Zuweisungen lesen.
+- `PATCH /termine/{id}` → Termin ändern/verschieben; Antwort enthält bei Überschneidung `konflikt: true` mit Liste betroffener Monteure.
+- `POST /termine/{id}/absagen` → Termin absagen (kein hartes Löschen; bleibt in Historie).
+- `POST /termine/{id}/zuweisungen` und `DELETE /termine/{id}/zuweisungen/{nutzer_id}` → Monteur zuweisen/entziehen.
+- **Monteur-Sicht:** `GET /termine` liefert Monteuren serverseitig nur die eigenen Termine; schreibende Endpunkte sind mit `403` gesperrt.
+- Jeder Endpunkt liest den Mandanten aus der Sitzung; Schreibend (`POST/PATCH/DELETE`, Zuweisung) tragen `require_role("Büro","Inhaber")`.
+
+### Technische Entscheidungen (WARUM)
+- **Eigenes Feature-Modul `backend/app/features/termine/`** im bewährten Vier-Datei-Layout (schemas/repository/service/routes + `__init__`-Re-Export) und zentrale Registration in `main.py` — kein neues Muster, volle Konsistenz mit PROJ-3/5.
+- **Keine Kalender-Bibliothek:** die Wochen-/Tagesansicht wird als eigenes, schlankes Raster (max. drei Monteurspalten) umgesetzt statt einer externen Kalender-Lib. Grund: hält Abhängigkeiten und Bundle-Größe klein; die vorhandenen shadcn-Primitive `table`/`dialog`/`select`/`badge` decken die Bausteine.
+- **Konfliktwarnung nicht-blockierend** (wie in Spec entschieden): der Termin wird gespeichert, die Antwort trägt `konflikt: true`, die Oberfläche markiert rot. Der Mensch behält die Entscheidung — passend zum Produktversprechen „Entwürfe werden stets durch Menschen freigegeben".
+- **Status-Rücksetzung historisiert:** nur wenn kein offener Termin mehr am Vorgang besteht, wird der Status zurückgesetzt und ein Historie-Eintrag geschrieben — vermeidet verlorene Zwischenstände.
+- **Mandantentrennung via RLS + `mandant_id`:** die Überschneidungsprüfung gilt nur innerhalb des eigenen Mandanten; ein Fehler in der Anwendung kann keine fremden Termine leaken.
+- **Einheitliche Zeitzone Europa/Berlin:** alle Zeitvergleiche (inkl. Konfliktprüfung) laufen in derselben Zeitzone; keine mehrfachen Zeitzonen im Modell.
+- **Kein Echtzeit:** Kalender wird bei Bedarf neu geladen (wie PROJ-3) — keine WebSocket-Verbindung nötig.
+
+### Abhängigkeiten
+- **Backend:** keine neuen Pakete; raw SQL + RLS wie in PROJ-1/3 etabliert.
+- **Frontend:** keine neue Bibliothek; ggf. ein schlankes Datum/Zeit-Eingabe-Primitive, sonst vorhandene shadcn-Primitive.
+- **Infrastruktur:** keine neue Komponente (kein MinIO-Pfad, kein neuer Dienst).
+
+### Abnahmebezug
+Alle AC-1…AC-7 sind durch Komponenten, Datenmodell und Endpunkte abgedeckt; insbesondere AC-4 (nicht-blockierende Konfliktwarnung über `konflikt`-Flag) und AC-6 (Status-Rücksetzung nur bei keinem offenen Resttermin, historisiert).
 
 ## QA Test Results
 _To be added by /qa_
