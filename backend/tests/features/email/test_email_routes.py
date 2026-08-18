@@ -150,7 +150,7 @@ def test_send_happy(client, mandant, monkeypatch):
     captured = {}
 
     def fake_send(konto, to, subject, body, in_reply_to=None, references=None,
-                  message_id=None):
+                  message_id=None, attachment=None):
         captured["to"] = to
         captured["subject"] = subject
         return "<sent@x>"

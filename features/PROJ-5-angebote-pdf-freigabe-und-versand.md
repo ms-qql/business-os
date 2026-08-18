@@ -1,6 +1,6 @@
 # PROJ-5: Angebote, PDF, Freigabe und Versand
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -187,6 +187,53 @@ Delegiert an Explore-Agent (`codegraph_explore`), drei Durchläufe (Architektur-
 - **Rabatt-Einheit je Position:** War in der 1. Review-Runde blockierend offen (Prozent vs. Euro-Betrag, echte Fachentscheidung, nicht technisch herleitbar). Vom Menschen entschieden (2026-08-18): **je Position frei wählbar zwischen Prozent und Euro-Betrag**, über `rabatt_typ` + Umschalter in der UI. Damit ist kein Checklistenpunkt mehr offen.
 
 **Status: Architected.** Alle Checklistenpunkte grün, keine offenen Fragen mehr. Nächster Schritt: `/abc-backend` und/oder `/abc-frontend`.
+
+## Frontend Implementation Notes (abc-frontend)
+**Erstellt:** 2026-08-18 · Next.js 16, Stack wie im Tech Design.
+
+Gebaut exakt gegen den im Tech Design (Abschnitt C) spezifizierten API-Vertrag — das Backend existierte zum Startzeitpunkt dieser Session noch nicht (`backend/app/features/` enthielt kein `angebote`-Verzeichnis, `git log` zeigt keinen Backend-Commit für PROJ-5). Es wurde daher **nicht gegen einen laufenden Server getestet**, nur gegen den Vertrag entwickelt + mit Jest/RTL/tsc/ESLint verifiziert. Sobald das Backend steht, braucht es einen manuellen/E2E-Rauchtest (`/abc-qa` bzw. `/abc-qa-e2e`).
+
+**Neue/geänderte Dateien:**
+- `nextjs_app/lib/angebot-berechnung.ts` — reine Berechnungslogik (Positionssumme je Rabatt-Typ, Netto/Steuer/Brutto-Aggregation, Rundungsregel "je Zeile runden, dann summieren", Rabatt-Validierung clientseitig gespiegelt).
+- `nextjs_app/lib/schemas/angebot.ts` — Zod-Schemas `positionSchema` (inkl. `rabatt_typ`/`rabatt_wert`-Refine), `kopfdatenSchema`, `freigabeSchema`.
+- `nextjs_app/lib/api/angebote.ts` — API-Client-Funktionen für alle 10 Endpunkte aus Tech Design Abschnitt C (`listAngebote`, `createAngebot`, `getAngebot`, `updateAngebotKopfdaten`, `addPosition`, `updatePosition`, `deletePosition`, `getAngebotPdfUrl`, `angebotFreigeben`, `angebotSenden`, `angebotNeueVersion`) inkl. Typen für `Angebot`/`AngebotPosition`/`AngebotListItem`/`FreigabeResult`.
+- `nextjs_app/components/angebote/position-form.tsx` — `PositionForm`: Menge/Einheit/Einzelpreis/Steuersatz/Rabatt inkl. %/€-Umschalter (shadcn `Select` mit zwei Optionen statt `ToggleGroup`, siehe Abweichung unten), react-hook-form + zodResolver.
+- `nextjs_app/components/angebote/angebot-freigabe.tsx` — `AngebotFreigabe`: Freigabeansicht als Dialog, zweistufig (erst `POST .../freigabe` → PDF-Vorschau im `<iframe>`, dann expliziter „Angebot senden"-Klick → `POST .../senden`); Versandfehler zeigt „Angebot wurde nicht versendet." + Fehlertext, Dialog bleibt im Vorbereitungs-Zustand.
+- `nextjs_app/components/angebote/vorgang-angebote.tsx` — `VorgangAngebote` (Hauptkomponente, gemountet in `vorgang-detail.tsx` analog zu `VorgangEmail`/`VorgangDokumente`) mit `AngebotListe`, `AngebotEditor`, `KopfdatenForm`, `PositionenTabelle`, `SummenBlock`; Entwurf-Speichern-Flow ohne jede automatische Versandaktion.
+- `nextjs_app/components/vorgaenge/vorgang-detail.tsx` — neue Karte „Angebote" nach der E-Mail-Karte eingehängt (rollen-gated wie die übrigen Schreib-Karten).
+- Tests: `nextjs_app/__tests__/angebot-berechnung.test.ts` (Summenberechnung, Rundung, Rabatt-Validierung), `nextjs_app/__tests__/angebot-schema.test.ts` (Zod-Validierung des Rabatt-Umschalters, Freigabe-Schema).
+
+**Abweichungen vom Tech Design (mit Begründung):**
+- Rabatt-Umschalter als shadcn `Select` (zwei Optionen: „Prozent (%)"/„Euro-Betrag (€)") statt `ToggleGroup` — Tech Design nannte explizit beide Optionen ("`ToggleGroup` oder `Select`"), `ToggleGroup` existiert noch nicht in `components/ui/`, ein zusätzliches shadcn-Primitive für einen einzigen Zwei-Optionen-Schalter wäre unnötige neue Fläche; das Projekt hat bereits ein `Select`-Primitive, das exakt dasselbe leistet.
+- `SummenBlock` zeigt die vom Server zurückgegebenen `netto_summe`/`steuer_summe`/`brutto_summe` (jede Positions-Mutation liefert das aktualisierte `Angebot` inkl. neu berechneter Summen zurück) statt eine zusätzliche Client-Vorschau-Berechnung vor dem Absenden zu duplizieren — vermeidet zwei parallele Berechnungsquellen, die auseinanderlaufen könnten; die reine Rechenlogik in `lib/angebot-berechnung.ts` existiert trotzdem (testbar, spiegelt die Server-Rundungsregel) und wird für die clientseitige Rabatt-Vorabvalidierung im Zod-Schema genutzt.
+
+**Test-Ergebnisse (2026-08-18, lokal, ohne laufendes Backend):**
+- `npm run test` → 6 Suiten, 27 Tests, alle grün.
+- `npx next lint` → Errors: 0, Warnings: 0.
+- `npx tsc --noEmit` → keine Fehler.
+
+## Backend Implementation Notes (abc-backend)
+**Umgesetzt:** 2026-08-18 · Branch `specs/PROJ-5-angebote-pdf-freigabe-und-versand`
+
+- Migration `backend/sql/006_angebote.sql`: `angebot`, `angebot_position`, `angebot_nummernkreis` — mandant-scoped, RLS wie bestehende Tabellen, Indizes auf `(mandant_id, vorgang_id, created_at)` bzw. `(mandant_id, angebot_id, sortierung)`.
+- Neues Feature-Package `backend/app/features/angebote/` (`routes.py`, `service.py`, `repository.py`, `schemas.py`, `pdf.py`, `templates/angebot_pdf.html`), registriert in `backend/app/main.py`. Alle Endpunkte exakt wie im Tech Design (Abschnitt C), `require_role("Buero","Inhaber")` auch auf den Lesepfaden (lt. Spec explizit für alle `/angebote*`-Endpunkte, anders als bei `vorgaenge`).
+- Nummernkreis-Locking exakt nach Tech Design umgesetzt: `app/db.py` bekam eine neue `engine.transaction(mandant_id)`-Context-Manager-Methode (Postgres: `BEGIN` + `SELECT ... FOR UPDATE` + `COMMIT`/`ROLLBACK` auf derselben Connection; SQLite-Testdouble: einfacher Commit/Rollback-Block, da die Suite nicht nebenläufig läuft). `angebote/repository.py::next_angebot_nummer` liest/erhöht `angebot_nummernkreis` darin; Format `AN-<Jahr>-<laufende Nummer, 4-stellig>`. Rollt die Transaktion zurück, bleibt der Zähler unverändert (keine Lücke).
+- Rabatt-Typ je Position (`prozent`/`betrag`) inkl. beidseitiger Validierung (0–100 % bzw. Positionssumme ≥ 0) in `service.py::_validate_rabatt`, angewendet bei `POST`/`PATCH` gleichermaßen. Rundung: je Position auf 2 Nachkommastellen, dann summiert (`service.py::_totals`).
+- Unveränderlichkeit nach Versand: `service.py::_require_entwurf` liefert 409 (`ConflictError`) auf `PATCH`/Positions-Schreibzugriffe, sobald `status = versendet`.
+- Zweistufiger Versand: `POST /angebote/{id}/freigabe` prüft Positionen+Empfänger, rendert das PDF serverseitig aus den gespeicherten Daten (nie Client-HTML), lädt es als `vorgang_dokument` nach MinIO hoch und liefert Empfänger/Betreff/Summen/PDF-URL zurück. `POST /angebote/{id}/senden` verlangt server-seitig, dass `freigabe` zuvor gelaufen ist (`dokument_id`/`empfaenger_email` müssen gesetzt sein → sonst 422), rendert das PDF für den Versandzeitpunkt frisch, versendet über `send_vorgang_email` mit Anhang, friert Summen/Status ein und setzt den Vorgang über den bestehenden `vorgaenge_service.update_vorgang(..., status="Angebot offen", ...)`-Pfad (inkl. dessen Historie-Schreibung).
+- Versandfehler: `senden()` fängt jede Exception aus `send_vorgang_email` ab, das Angebot bleibt `entwurf`, Response trägt `fehler_text="Angebot wurde nicht versendet."` (Edge Case erfüllt), kein Statuswechsel am Vorgang.
+- `neue-version`: nur auf `status=versendet` aufrufbar (409 sonst), kopiert Positionen 1:1 in einen neuen Entwurf mit neuer Angebotsnummer und `vorgaenger_angebot_id`.
+- E-Mail-Erweiterung additiv, nicht-brechend: `email/mailclient.py::send_message` und `email/service.py::send_vorgang_email` bekamen einen optionalen `attachment: tuple[dateiname, daten, content_type] | None = None`-Parameter (Default `None` → bestehende Aufrufer unverändert). Ein bestehender Test-Fake (`tests/features/email/test_email_routes.py::test_send_happy`) musste um den neuen Keyword-Parameter ergänzt werden, da er die Signatur strikt nachbildet.
+- Abhängigkeiten `xhtml2pdf`/`jinja2` zu `backend/requirements.txt` ergänzt — waren im `Dashboard`-Conda-Env bereits vorhanden (0.2.17 bzw. aktuell), kein neuer Installationsschritt nötig.
+- Tests: `backend/tests/features/angebote/test_angebote.py` (17 Tests) — Nummernkreis-Sequenz, Rollen-Guard, Rabatt-Berechnung (prozent + betrag) inkl. beider Validierungsgrenzen, Freigabe-Vorbedingungen (keine Position/kein Empfänger → 422), Freigabe-Ergebnis, Senden ohne vorherige Freigabe (422), Senden-Erfolg (Status + Vorgang-Statuswechsel), Senden-Fehlschlag (bleibt Entwurf), 409 auf Schreibzugriff nach Versand, `neue-version`-Vorbedingung + Positionskopie, Cross-Tenant-404. `backend/tests/conftest.py` um die drei neuen SQLite-Testtabellen ergänzt; ein bestehender Email-Test-Fake angepasst (s. o.).
+
+**Testlauf:** `conda run -n Dashboard --no-capture-output python -m pytest backend/tests` → **118 passed** (gesamte Suite inkl. der 17 neuen Angebote-Tests), keine Fehler, keine Regressionen.
+
+**Abweichungen vom Tech Design:**
+- `app/db.py` bekam eine neue `transaction()`-Methode auf `BaseEngine`/`PostgresEngine`/`SqliteEngine` — im Tech Design nicht explizit als Codeänderung benannt (nur der fachliche Locking-Algorithmus), aber notwendig, weil `query`/`command` bisher je einen eigenen Connection-Scope pro Aufruf öffnen und für das geforderte „innerhalb derselben Transaktion" kein Mechanismus existierte. Rein additive Infrastruktur, keine Änderung an bestehendem Verhalten von `query`/`command`.
+- Angebotsnummer wird bei **jeder** `angebot`-Zeilenerstellung neu gezogen (auch bei `POST /vorgaenge/{id}/angebote` mit `vorgaenger_angebot_id` und bei `neue-version`), nicht nur einmalig pro Vorgang — folgt wörtlich der Owner-Tabelle im Tech Design ("wird intern beim ersten POST .../angebote **einer neuen Version** transaktional hochgezählt").
+- `GET /angebote/{id}/pdf` erzeugt bei Bedarf (kein `dokument_id` vorhanden) das PDF on-the-fly, statt nur einen bereits vorhandenen Dokument-Verweis zurückzugeben — deckt den im Tech Design als "optional" markierten Fall ab ("und optional GET /angebote/{id}/pdf" in Abschnitt D).
+- Frontend (Next.js-Komponenten aus Abschnitt A) ist **nicht** Teil dieses Backend-Durchlaufs — folgt über `/abc-frontend`.
 
 ## QA Test Results
 _To be added by /qa_
