@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -37,8 +38,8 @@ class VorgangListItem(BaseModel):
     objekt_id: Optional[str] = None
     objekt_adresse: Optional[str] = None
     zugewiesener_nutzer_id: Optional[str] = None
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
 
 
 class VorgangListResponse(BaseModel):
@@ -53,7 +54,7 @@ class HistorieRead(BaseModel):
     ereignis: str
     detail: Optional[str] = None
     nutzer_id: Optional[str] = None
-    created_at: str
+    created_at: datetime | str
 
 
 class DokumentRead(BaseModel):
@@ -62,7 +63,7 @@ class DokumentRead(BaseModel):
     content_type: str
     groesse_bytes: int
     hochgeladen_von: Optional[str] = None
-    created_at: str
+    created_at: datetime | str
 
 
 class VorgangDetail(BaseModel):
@@ -74,8 +75,8 @@ class VorgangDetail(BaseModel):
     kunde_id: str
     objekt_id: Optional[str] = None
     zugewiesener_nutzer_id: Optional[str] = None
-    created_at: str
-    updated_at: str
+    created_at: datetime | str
+    updated_at: datetime | str
     historie: list[HistorieRead]
     dokumente: list[DokumentRead]
 

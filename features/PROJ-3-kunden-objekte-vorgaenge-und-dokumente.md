@@ -265,6 +265,18 @@ Neue Tests in `backend/tests/test_users.py`: `test_buero_can_list_users_but_not_
 
 **Test nach Fix:** `/home/dev/miniconda3/envs/Dashboard/bin/python3 -m pytest backend/tests -q` → **78 grün** (76 nach QA-Erweiterung + 2 neue Tests für BUG-1), keine Regression.
 
+### Backoffice-Fix (2026-08-18) — `GET /vorgaenge` 404 durch Pydantic-ValidationError (`created_at`/`updated_at`)
+Produktions-Meldung: Vorgänge-Liste zeigt „Laden fehlgeschlagen" (404). Backend-Log:
+`pydantic_core._pydantic_core.ValidationError: 2 validation errors for VorgangListItem — created_at: Input should be a valid string [type=string_type, input_value=datetime.datetime(...)]` an `backend/app/features/vorgaenge/routes.py:21`.
+
+**Ursache:** `VorgangListItem`, `HistorieRead`, `DokumentRead`, `VorgangDetail` in `backend/app/features/vorgaenge/schemas.py` typisierten `created_at`/`updated_at` als reines `str`. Der DB-Treiber liefert für Timestamp-Spalten echte `datetime`-Objekte; Pydantic v2 coerct `datetime` in strict `str`-Feldern nicht automatisch → `ValidationError` bei jedem Response-Aufbau, sobald ein echter Timestamp aus der DB kommt (nicht durch die SQLite-Test-Fixtures abgedeckt, die Strings liefern — daher „Tests grün" trotz Live-Bug).
+
+**Fix:** `created_at`/`updated_at` in allen vier Schemas auf `datetime | str` umgestellt (`from datetime import datetime` ergänzt) — identisches Muster wie bereits in `backend/app/features/kunden/schemas.py` etabliert (`created_at: datetime | str`). Kein Verhaltens-, nur Typ-Fix.
+
+**Verifikation:** Reproduktion via `python -c "... schemas.VorgangListItem(**{..., created_at: <echtes datetime.now(UTC)>, ...})"` — vor dem Fix `ValidationError`, danach grün. Regressionslauf `pytest tests/features/vorgaenge/ -q` → 22 grün, keine Regression.
+
+**Knowledge:** `gotcha-business-os-vorgaenge-datetime-str-mismatch.md` im Hal-Vault.
+
 ### Offene Punkte
 - Rechnungs-Löschsperre kann erst mit PROJ-8 vollständig umgesetzt werden (siehe oben).
 - ~~`GET /users` verlangt laut PROJ-1 `require_role("Inhaber")`~~ — behoben, siehe QA-Fix BUG-1 oben.
