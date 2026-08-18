@@ -1,6 +1,6 @@
 # PROJ-4: E-Mail-Inbox und Vorgangskommunikation
 
-## Status: Architected
+## Status: Approved
 **Created:** 2026-08-16
 
 ## Dependencies
@@ -291,6 +291,16 @@ Typecheck + Lint: grün. Backend (`email`-Router + Migrationen) noch nicht vorha
 - [x] `/internal/email/poll` bleibt über `internal_proxy_secret`-Header abgesichert (`routes.py:19`).
 
 Backend-Scope: keine offenen Bugs, keine Regressionen. Frontend-Browser-Manuelltest bleibt für die Gesamt-Produktionsfreigabe offen (unverändert seit letztem Retest, nicht Teil dieses Backend-Laufs).
+
+### Finale Freigabe-Entscheidung
+
+**Entschieden:** 2026-08-18
+
+- Alle 5 gefundenen Bugs (BUG-1–BUG-5) gefixt und retestet, keine Regressionen (101/101 Backend-Tests, Frontend Jest/Typecheck/Build grün).
+- Browser-Manuelltest weiterhin nicht durchführbar in dieser Umgebung (kein Chrome/Chromium, kein laufender Business-OS-Stack) — unverändert seit letztem Retest, kein neuer Blocker.
+- Kein Critical/High-Bug offen → **Production Ready: YES** (Automatisierte Abdeckung + Security-Fixes verifiziert; manueller Browser-Smoke wird nachgeholt sobald ein laufender Stack verfügbar ist, z. B. via `/abc-qa-e2e` oder `/abc-launch-app`).
+
+**Status:** In Review → **Approved**.
 
 ## Deployment
 _To be added by /deploy_
