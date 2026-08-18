@@ -281,5 +281,16 @@ Typecheck + Lint: grün. Backend (`email`-Router + Migrationen) noch nicht vorha
 
 **Production Ready:** Noch nicht entschieden — Browser-Manuelltest gegen einen laufenden Stack steht aus.
 
+### Backend-Re-Verifikation (Scope: backend)
+
+**Getestet:** 2026-08-18 · `conda run -n Dashboard --no-capture-output python -m pytest backend/tests`
+
+- [x] `python -m pytest backend/tests` — **101 passed** (0 failed), keine Regression seit letztem Retest (100 passed).
+- [x] BUG-4 erneut geprüft: `EMAIL_CREDENTIALS_KEY: ${EMAIL_CREDENTIALS_KEY}` ist in `docker-compose.yml` an `bizos-backend` durchgereicht.
+- [x] BUG-5 erneut geprüft: `_ALLOWED_TAGS` in `backend/app/features/email/mailclient.py` enthält kein `img`; keine externen Tracking-Pixel mehr möglich.
+- [x] `/internal/email/poll` bleibt über `internal_proxy_secret`-Header abgesichert (`routes.py:19`).
+
+Backend-Scope: keine offenen Bugs, keine Regressionen. Frontend-Browser-Manuelltest bleibt für die Gesamt-Produktionsfreigabe offen (unverändert seit letztem Retest, nicht Teil dieses Backend-Laufs).
+
 ## Deployment
 _To be added by /deploy_
