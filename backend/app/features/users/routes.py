@@ -40,3 +40,25 @@ def change_user(user_id: str, payload: schemas.UserUpdate,
         user.mandant_id, user_id, payload.role, payload.status
     )
     return schemas.UserRead(**updated)
+
+
+@router.get("/monteure", response_model=list[dict])
+def list_monteure(user: CurrentUser = Depends(require_role("Buero", "Inhaber"))):
+    # PROJ-6: aktive Monteure des Mandanten für die Auswahl im Termin-Dialog.
+    # Lazy imports, um zirkuläre Imports (deps <-> auth) beim App-Start zu vermeiden.
+    from app.features.termine import schemas as termin_schemas
+    from app.features.termine import service as termine_service
+
+    return [termin_schemas.MonteurOption(**m).model_dump() for m in termine_service.list_monteure(user)]
+
+
+# Deutsches Präfix /nutzer für das Frontend (PROJ-6 erwartet /nutzer/monteure).
+nutzer_router = APIRouter(prefix="/nutzer", tags=["nutzer"])
+
+
+@nutzer_router.get("/monteure", response_model=list[dict])
+def list_monteure_deutsch(user: CurrentUser = Depends(require_role("Buero", "Inhaber"))):
+    from app.features.termine import schemas as termin_schemas
+    from app.features.termine import service as termine_service
+
+    return [termin_schemas.MonteurOption(**m).model_dump() for m in termine_service.list_monteure(user)]

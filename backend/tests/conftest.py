@@ -148,6 +148,17 @@ CREATE TABLE angebot_position (
     sortierung INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE termin (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL,
+    beginn TEXT NOT NULL, ende TEXT NOT NULL, adresse TEXT, notiz TEXT,
+    abgesagt_at TEXT, vorheriger_vorgang_status TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE termin_zuweisung (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, termin_id TEXT NOT NULL, nutzer_id TEXT NOT NULL,
+    aktiv BOOLEAN NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (termin_id, nutzer_id)
+);
 """
 
 

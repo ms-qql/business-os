@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from fastapi import Depends, Header
 
+from app import db
 from app.errors import AuthError, ForbiddenError
-from app.features.auth import repository as auth_repo
 from app.security import decode_token
 
 
@@ -30,6 +30,25 @@ def _bearer(authorization: str | None) -> str | None:
     return None
 
 
+def _get_session(session_id: str) -> dict | None:
+    # Direkter DB-Zugriff statt auth.repository-Import, um den zirkulären
+    # Import (deps <-> auth.__init__ <-> auth.routes) zu vermeiden.
+    rows = db.engine.query(
+        "SELECT id, mandant_id, nutzer_id, revoked, expires_at FROM sitzungen WHERE id = %s",
+        (session_id,),
+    )
+    return rows[0] if rows else None
+
+
+def _get_user_by_id(mandant_id: str, user_id: str) -> dict | None:
+    rows = db.engine.query(
+        "SELECT id, mandant_id, name, email, role, status FROM nutzer "
+        "WHERE mandant_id = %s AND id = %s",
+        (mandant_id, user_id), mandant_id=mandant_id,
+    )
+    return rows[0] if rows else None
+
+
 def get_current_user(authorization: str | None = Header(default=None)) -> CurrentUser:
     token = _bearer(authorization)
     if not token:
@@ -43,7 +62,7 @@ def get_current_user(authorization: str | None = Header(default=None)) -> Curren
     if not session_id:
         raise AuthError("Sitzung ungültig.")
 
-    session = auth_repo.get_session(session_id)
+    session = _get_session(session_id)
     if not session or session["revoked"]:
         raise AuthError("Sitzung beendet.")
     exp = datetime.datetime.fromisoformat(str(session["expires_at"]))
@@ -52,7 +71,7 @@ def get_current_user(authorization: str | None = Header(default=None)) -> Curren
     if exp < datetime.datetime.now(datetime.timezone.utc):
         raise AuthError("Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.")
 
-    user = auth_repo.get_user_by_id(session["mandant_id"], session["nutzer_id"])
+    user = _get_user_by_id(session["mandant_id"], session["nutzer_id"])
     if not user:
         raise AuthError("Sitzung ungültig.")
     if user["status"] == "disabled":
