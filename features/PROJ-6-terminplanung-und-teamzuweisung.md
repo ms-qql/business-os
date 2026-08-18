@@ -1,10 +1,10 @@
 # PROJ-6: Terminplanung und Teamzuweisung
 
-## Status: In Review (QA: 7/7 AC bestanden, BUG-1 Medium offen)
+## Status: In Review (QA: 7/7 AC bestanden, BUG-1 gefixt+retestet)
 **Created:** 2026-08-16
 **Last Updated:** 2026-08-18
 **Frontend-Stand:** 2026-08-18 — Next.js 16 + shadcn/ui, gebaut & typegeprüft. Backend implementiert (Migration `007_termine.sql`, Feature-Modul `backend/app/features/termine/`), Commit `fe1e046`.
-**QA-Stand:** 2026-08-18 — 7/7 AC bestanden, Security-Audit ohne Critical/High-Befund, BUG-1 (Medium) offen. Siehe „QA Test Results" unten.
+**QA-Stand:** 2026-08-18 — 7/7 AC bestanden, Security-Audit ohne Critical/High-Befund. BUG-1 (Medium) gefunden, gefixt und retestet (siehe „QA Test Results" unten).
 
 ## Dependencies
 - Requires: PROJ-3 — Vorgang und zugehörige Adresse.
@@ -215,24 +215,24 @@ erwartet exakt die dort spezifizierten Endpunkte/Felder (insb. `konflikt`/`konfl
 
 ### Bugs
 
-**BUG-1 (Medium) — Deaktivierte Monteure können neu zugewiesen werden**
-- **Wo:** `backend/app/features/termine/service.py::_require_monteur()` (Zeile 39–45)
-- **Was:** Die Funktion prüft nur `nutzer["role"] != "Monteur"`, nicht den Status (`active`/`disabled`). Sowohl `POST /termine` (Anlage mit `monteure: [...]`) als auch `POST /termine/{id}/zuweisungen` akzeptieren einen deaktivierten Monteur klaglos (`201`), statt mit `422` abzulehnen.
-- **Reproduktion:** Monteur mit `status="disabled"` anlegen → `POST /termine` mit dessen `nutzer_id` in `monteure[]` → Antwort `201`, Zuweisung wird real gespeichert (Response zeigt `aktiv: false`, aber die Zuweisung existiert in der DB).
-- **Bezug zur Spec:** Edge Case (Zeile 36): „Deaktivierte Nutzer können einem Termin nicht neu zugewiesen werden; bestehende Zuweisungen bleiben nachvollziehbar." — die zweite Hälfte ist korrekt implementiert; die erste (Neuzuweisung blockieren) fehlt serverseitig.
-- **Mitigierender Faktor:** Der Termin-Dialog im Frontend filtert deaktivierte Monteure bereits client-seitig aus der Auswahl (`termin-dialog.tsx:76`, `setMonteure(m.filter(x => x.aktiv))`) — das UI verhindert den Fall im Normalbetrieb. Es fehlt aber die serverseitige Absicherung (Defense-in-Depth: direkter API-Zugriff, künftiger zweiter Client, Race Condition beim Deaktivieren nach Laden der Liste).
-- **Regressionstests:** `test_bug1_deaktivierter_monteur_bei_anlage_abgelehnt` und `test_bug1_deaktivierter_monteur_via_zuweisen_endpoint_abgelehnt` in `backend/tests/features/termine/test_termine.py` (aktuell `xfail(strict=True)` — laufen automatisch grün, sobald der Fix umgesetzt ist; der Marker muss dann entfernt werden).
-- **Fix-Vorschlag (nicht umgesetzt — QA fixt keine Bugs):** In `_require_monteur()` zusätzlich `if nutzer["status"] != "active": raise ValidationError(...)` ergänzen.
+**BUG-1 (Medium, gefixt) — Deaktivierte Monteure können neu zugewiesen werden**
+- **Wo:** `backend/app/features/termine/service.py::_require_monteur()` (Zeile 39–49)
+- **Was:** Die Funktion prüfte nur `nutzer["role"] != "Monteur"`, nicht den Status (`active`/`disabled`). Sowohl `POST /termine` (Anlage mit `monteure: [...]`) als auch `POST /termine/{id}/zuweisungen` akzeptierten einen deaktivierten Monteur klaglos (`201`), statt mit `422` abzulehnen.
+- **Reproduktion:** Monteur mit `status="disabled"` anlegen → `POST /termine` mit dessen `nutzer_id` in `monteure[]` → Antwort war `201`, Zuweisung wurde real gespeichert (Response zeigte `aktiv: false`, aber die Zuweisung existierte in der DB).
+- **Bezug zur Spec:** Edge Case (Zeile 36): „Deaktivierte Nutzer können einem Termin nicht neu zugewiesen werden; bestehende Zuweisungen bleiben nachvollziehbar." — die zweite Hälfte war bereits korrekt implementiert; die erste (Neuzuweisung blockieren) fehlte serverseitig.
+- **Mitigierender Faktor (vor Fix):** Der Termin-Dialog im Frontend filtert deaktivierte Monteure bereits client-seitig aus der Auswahl (`termin-dialog.tsx:76`), das UI verhinderte den Fall im Normalbetrieb. Die serverseitige Absicherung fehlte aber (Defense-in-Depth).
+- **Fix (2026-08-18, `/abc-backend`):** `_require_monteur()` prüft jetzt zusätzlich `nutzer["status"] != "active"` und wirft `ValidationError` (→ `422`) bei deaktivierten Nutzern. Bestehende Zuweisungen (angelegt, bevor der Monteur deaktiviert wurde) bleiben unangetastet — die Prüfung greift nur bei Neuzuweisung (Anlage/PATCH/`POST .../zuweisungen`).
+- **Retest:** `test_bug1_deaktivierter_monteur_bei_anlage_abgelehnt` und `test_bug1_deaktivierter_monteur_via_zuweisen_endpoint_abgelehnt` in `backend/tests/features/termine/test_termine.py` — beide von `xfail` auf normale Pass-Tests umgestellt und grün. Volle Suite: **148 passed**, keine Regression.
 
-Keine Critical- oder High-Bugs gefunden. Kein Live-Browser-Rendering (Chrome, Responsive 375/768/1440 px) in dieser QA-Runde durchgeführt — Empfehlung: vor Produktivsetzung nachholen.
+Keine Critical- oder High-Bugs mehr offen. Kein Live-Browser-Rendering (Chrome, Responsive 375/768/1440 px) in dieser QA-Runde durchgeführt — Empfehlung: vor Produktivsetzung nachholen.
 
 ### Regression (andere Features)
-Volle Suite grün (148/148 inkl. PROJ-1, PROJ-3, PROJ-4, PROJ-5 Tests) — keine Regression durch PROJ-6 festgestellt.
+Volle Suite grün (148/148 inkl. PROJ-1, PROJ-3, PROJ-4, PROJ-5 Tests) — keine Regression durch PROJ-6 oder den BUG-1-Fix festgestellt.
 
 ### Production-Ready Empfehlung
-**READY**, mit Vorbehalt: BUG-1 ist **Medium** (kein Critical/High — Frontend blockiert den Fall bereits clientseitig, kein Tenant-Leck, kein Datenverlust, kein Auth-Bypass). Gemäß Skill-Regel „READY: No Critical or High bugs remaining" ist das Feature production-ready; BUG-1 sollte dennoch zeitnah nachgezogen werden.
+**READY.** Alle Acceptance Criteria bestanden, kein Critical/High-Bug, BUG-1 gefixt und retestet.
 
-**Empfehlung: READY** (mit offenem Medium-Bug BUG-1 zur Nachbesserung).
+**Empfehlung: READY** — nächster Schritt: `/abc-deploy`.
 
 ## Deployment
 _To be added by /deploy_

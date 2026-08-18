@@ -349,17 +349,12 @@ def test_cross_tenant_termin_nicht_sichtbar(client, mandant):
     assert liste["total"] == 0
 
 
-# --- BUG-1 (QA): deaktivierte Monteure serverseitig nicht blockiert ------
+# --- BUG-1 (fixed): deaktivierte Monteure serverseitig blockiert --------
 # Spec Edge Case: "Deaktivierte Nutzer können einem Termin nicht neu
-# zugewiesen werden". _require_monteur() in service.py prüft nur die Rolle
-# ("Monteur"), nicht den Status ("active"). Diese Tests dokumentieren den
-# IST-Zustand (xfail) als Regression-Marker für den Fix.
+# zugewiesen werden". _require_monteur() in service.py prüft jetzt auch den
+# Status ("active"), nicht mehr nur die Rolle.
 
 
-import pytest
-
-
-@pytest.mark.xfail(reason="BUG-1: _require_monteur prueft Status nicht, nur Rolle", strict=True)
 def test_bug1_deaktivierter_monteur_bei_anlage_abgelehnt(client, mandant):
     tok = _login(client, mandant, "buero@shk.de")
     _, vorgang = _setup_vorgang(mandant)
@@ -369,7 +364,6 @@ def test_bug1_deaktivierter_monteur_bei_anlage_abgelehnt(client, mandant):
     assert r.status_code == 422, r.text
 
 
-@pytest.mark.xfail(reason="BUG-1: _require_monteur prueft Status nicht, nur Rolle", strict=True)
 def test_bug1_deaktivierter_monteur_via_zuweisen_endpoint_abgelehnt(client, mandant):
     tok = _login(client, mandant, "buero@shk.de")
     _, vorgang = _setup_vorgang(mandant)

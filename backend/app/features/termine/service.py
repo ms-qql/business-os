@@ -42,6 +42,11 @@ def _require_monteur(mandant_id: str, nutzer_id: str) -> dict:
         raise NotFoundError("Nutzer nicht gefunden.")
     if nutzer["role"] != "Monteur":
         raise ValidationError("Ein Termin kann nur einem Monteur zugewiesen werden.")
+    if nutzer["status"] != "active":
+        # BUG-1 (QA): deaktivierte Nutzer können einem Termin nicht neu
+        # zugewiesen werden (Spec-Edge-Case). Bestehende Zuweisungen bleiben
+        # unangetastet — diese Prüfung greift nur bei Neuzuweisung.
+        raise ValidationError("Ein deaktivierter Monteur kann nicht neu zugewiesen werden.")
     return nutzer
 
 
