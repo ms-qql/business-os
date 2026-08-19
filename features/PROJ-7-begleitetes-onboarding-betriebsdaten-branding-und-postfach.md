@@ -1,8 +1,7 @@
 # PROJ-7: Begleitetes Onboarding: Betriebsdaten, Branding und Postfach
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-16
-**Last Updated:** 2026-08-19
 **Last Updated:** 2026-08-19
 
 ## Dependencies
@@ -484,4 +483,8 @@ Frontend benötigt keine Änderung (Katalog-Contract und tsc/build bereits grün
 **Production-Ready-Empfehlung: READY.**
 
 ## Deployment
-_To be added by /deploy_
+- **Deployed:** 2026-08-19 · **Version:** 0.1.8 · **Tag:** v0.1.8-PROJ-7
+- Commit: `ae2d8a1` (direkt auf `main`, spec-branch `specs/PROJ-7-onboarding` enthielt nur den Architecture-Review-Commit — Implementierung lief im Haupt-Worktree)
+- Backend: neues Feature `backend/app/features/onboarding/`, Migration `backend/sql/008_onboarding.sql`
+- Frontend: neue Seite `nextjs_app/app/(app)/onboarding/` + Komponenten `nextjs_app/components/onboarding/`
+- Ausstehend: manueller Smoke-Test auf Prod-Domain (Schritt 5 Postfach-Test, Schritt 7 Testanfrage, Veröffentlichen-Gate)
