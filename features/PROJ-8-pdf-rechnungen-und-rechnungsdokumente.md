@@ -1,6 +1,6 @@
 # PROJ-8: PDF-Rechnungen und Rechnungsdokumente
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-16
 
 ## Annahmen
