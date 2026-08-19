@@ -1,0 +1,79 @@
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  h1 { font-size: 16pt; margin-bottom: 0; }
+  h2 { font-size: 11pt; margin-bottom: 4px; }
+  .meta { margin-bottom: 12px; color: #222; }
+  .row { display: flex; justify-content: space-between; gap: 32px; margin-bottom: 16px; }
+  .col { width: 48%; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border-bottom: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 9pt; }
+  th { background-color: #f0f0f0; }
+  .right { text-align: right; }
+  .summen { margin-top: 12px; width: 40%; float: right; }
+  .storniert { color: #b00020; font-weight: bold; }
+</style>
+</head>
+<body>
+  <h1>Rechnung {{ rechnungsnummer }}</h1>
+  <div class="meta">
+    Rechnungsdatum: {{ rechnungsdatum }} &middot; Leistungsdatum: {{ leistungsdatum }}
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <h2>Rechnungssteller</h2>
+      <strong>{{ rechnungssteller.firma_name }}</strong><br>
+      {{ rechnungssteller.strasse }} {{ rechnungssteller.hausnummer }}<br>
+      {{ rechnungssteller.plz }} {{ rechnungssteller.ort }}<br>
+      {% if rechnungssteller.steuernummer %}Steuernummer: {{ rechnungssteller.steuernummer }}<br>{% endif %}
+      {% if rechnungssteller.ust_id %}USt-IdNr.: {{ rechnungssteller.ust_id }}{% endif %}
+    </div>
+    <div class="col">
+      <h2>Rechnungsempfänger</h2>
+      <strong>{{ kunde.name }}</strong><br>
+      {% if objekt.adresse %}{{ objekt.adresse }}<br>{% endif %}
+      {% if kunde.email %}{{ kunde.email }}{% endif %}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Bezeichnung</th>
+        <th class="right">Menge</th>
+        <th>Einheit</th>
+        <th class="right">Einzelpreis (netto)</th>
+        <th class="right">Steuersatz</th>
+        <th class="right">Summe (netto)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in positionen %}
+      <tr>
+        <td>{{ p.bezeichnung }}</td>
+        <td class="right">{{ p.menge }}</td>
+        <td>{{ p.einheit }}</td>
+        <td class="right">{{ p.einzelpreis_txt }} &euro;</td>
+        <td class="right">{{ p.steuersatz }} %</td>
+        <td class="right">{{ p.positions_summe_txt }} &euro;</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summen">
+    <table>
+      <tr><td>Netto</td><td class="right">{{ netto_txt }} &euro;</td></tr>
+      <tr><td>Steuer</td><td class="right">{{ steuer_txt }} &euro;</td></tr>
+      <tr><td><strong>Brutto</strong></td><td class="right"><strong>{{ brutto_txt }} &euro;</strong></td></tr>
+    </table>
+  </div>
+
+  {% if kopf.storniert %}
+  <p class="storniert">Diese Rechnung wurde storniert.</p>
+  {% endif %}
+</body>
+</html>
