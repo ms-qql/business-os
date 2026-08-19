@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Kontaktweg = Literal["Telefon", "E-Mail"]
 Dringlichkeit = Literal["Normal", "Dringend"]
@@ -67,8 +67,21 @@ class WebsiteSettingsPatch(BaseModel):
     adresse: Optional[str] = None
     oeffnungszeiten: Optional[str] = None
     ueber_uns: Optional[str] = None
-    domain: Optional[str] = None
     leistungen: Optional[list[LeistungPatch]] = None
+
+    # ADR-7-2: Das Feld `domain` wurde aus dem Schreibpfad entfernt. Die
+    # Domain-Reservierung läuft ausschließlich über PUT /onboarding/domain.
+    # Ein gesendetes `domain` wird bewusst mit 422 abgewiesen (kein stiller No-op),
+    # damit Clients den neuen Pfad nutzen.
+    @model_validator(mode="before")
+    @classmethod
+    def _domain_nicht_erlaubt(cls, data):
+        if isinstance(data, dict) and "domain" in data and data.get("domain") is not None:
+            raise ValueError(
+                "Das Feld 'domain' ist im PATCH /website-settings nicht mehr erlaubt. "
+                "Bitte PUT /onboarding/domain verwenden."
+            )
+        return data
 
 
 class LogoUploadRead(BaseModel):

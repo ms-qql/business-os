@@ -43,7 +43,7 @@ Sekundär: Bürokräfte und Monteure derselben Betriebe. Bürokräfte pflegen Vo
 | P0 | Angebote und PDF-Versand | Einfache Positionen in ein prüfbares Angebot überführen |
 | P0 | Einfache Terminplanung | Termin einem von maximal drei Teammitgliedern zuordnen |
 | P0 | PDF-Rechnungen | Rechnung aus erledigtem Vorgang erstellen und ablegen |
-| P0 | Begleitetes Onboarding | Betrieb, Branding und Postfach startklar einrichten |
+| P0 | Begleitetes Onboarding | Betrieb, Branding, Postfach und Preisliste startklar einrichten, inkl. Testdurchstich vor Livegang |
 | P1 | Mobile Monteuransicht und Automationen | Aufträge mobil abschließen sowie Erinnerungen auslösen |
 | P1 | Datenschutz, Datenexport und Aufbewahrung | Mandantenexport und automatisierte Löschregeln ergänzen |
 | P1 | KI-Assistenz | Zusammenfassungen, Klassifizierung und Textentwürfe mit Freigabe |

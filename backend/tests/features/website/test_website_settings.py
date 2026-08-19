@@ -59,36 +59,45 @@ def test_settings_domain_shown_from_website_domains(client, mandant):
     assert r.json()["domain_status"] == "aktiv"
 
 
-def test_owner_sets_domain(client, mandant):
+def test_owner_domain_not_in_patch_contract(client, mandant):
+    # ADR-7-2: domain ist kein Schreibfeld mehr in PATCH /website-settings;
+    # es wird bewusst mit 422 abgewiesen (kein stiller No-op).
     tok = _login(client, mandant, "inh@shk.de", "Inhaber")
     r = client.patch(
         "/website-settings", headers={"Authorization": f"Bearer {tok}"},
-        json={"domain": "  ShK-Mueller.de  "},
+        json={"domain": "shk-mueller.de"},
     )
-    assert r.status_code == 200, r.text
-    assert r.json()["domain"] == "shk-mueller.de"
-    assert r.json()["domain_status"] == "aktiv"
+    assert r.status_code == 422, r.text
+    # Domain-Reservierung läuft ausschließlich über /onboarding/domain.
+    r2 = client.put(
+        "/onboarding/domain", headers={"Authorization": f"Bearer {tok}"},
+        json={"hostname": "shk-mueller.de"},
+    )
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["status"] == "inaktiv"
 
+    # Öffentliche Website ist erst nach Veröffentlichung erreichbar (inaktive
+    # Domain ist noch nicht live) — ein expliziter 404 ist hier korrekt.
     site = client.get("/public/site", headers={"host": "shk-mueller.de"})
-    assert site.status_code == 200, site.text
+    assert site.status_code == 404, site.text
 
 
 def test_domain_collision_with_other_tenant_rejected(client, mandant):
     other = make_mandant("Andere Firma")
     make_domain(other, "shk-mueller.de")
     tok = _login(client, mandant, "inh@shk.de", "Inhaber")
-    r = client.patch(
-        "/website-settings", headers={"Authorization": f"Bearer {tok}"},
-        json={"domain": "shk-mueller.de"},
+    r = client.put(
+        "/onboarding/domain", headers={"Authorization": f"Bearer {tok}"},
+        json={"hostname": "shk-mueller.de"},
     )
     assert r.status_code == 409, r.text
 
 
 def test_domain_invalid_format_rejected(client, mandant):
     tok = _login(client, mandant, "inh@shk.de", "Inhaber")
-    r = client.patch(
-        "/website-settings", headers={"Authorization": f"Bearer {tok}"},
-        json={"domain": "https://not a hostname/"},
+    r = client.put(
+        "/onboarding/domain", headers={"Authorization": f"Bearer {tok}"},
+        json={"hostname": "https://not a hostname/"},
     )
     assert r.status_code == 422, r.text
 

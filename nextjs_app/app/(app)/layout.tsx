@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox, CalendarDays } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox, CalendarDays, ListChecks } from "lucide-react";
 import { useAuth } from "@/app/providers";
 import { getToken } from "@/lib/session";
 import { NAV_RECHTE } from "@/lib/theme/tokens";
@@ -18,6 +18,7 @@ const ICONS: Record<string, React.ReactNode> = {
   nutzerverwaltung: <Users size={18} />,
   "website-einstellungen": <Globe size={18} />,
   "postfach-einstellungen": <Settings2 size={18} />,
+  "onboarding": <ListChecks size={18} />,
   termine: <CalendarDays size={18} />,
 };
 
@@ -29,6 +30,7 @@ const LABELS: Record<string, string> = {
   nutzerverwaltung: "Nutzerverwaltung",
   "website-einstellungen": "Website-Einstellungen",
   "postfach-einstellungen": "Postfach-Einstellungen",
+  "onboarding": "Onboarding",
   termine: "Termine",
 };
 
@@ -40,6 +42,7 @@ const PATHS: Record<string, string> = {
   nutzerverwaltung: "/nutzerverwaltung",
   "website-einstellungen": "/website-einstellungen",
   "postfach-einstellungen": "/einstellungen/postfach",
+  "onboarding": "/onboarding",
   termine: "/termine",
 };
 

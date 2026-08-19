@@ -61,7 +61,8 @@ CREATE TABLE website_settings (
 );
 CREATE TABLE website_domains (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, hostname TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL DEFAULT 'aktiv', created_at TEXT NOT NULL DEFAULT 'now'
+    status TEXT NOT NULL DEFAULT 'aktiv', veröffentlicht_am TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE leistungsseite (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, slug TEXT NOT NULL, titel TEXT NOT NULL,
@@ -95,6 +96,7 @@ CREATE TABLE vorgang (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, kunde_id TEXT NOT NULL, objekt_id TEXT,
     status TEXT NOT NULL DEFAULT 'Neu', quelle TEXT NOT NULL DEFAULT 'Sonstiges',
     anliegen TEXT NOT NULL, notizen TEXT, zugewiesener_nutzer_id TEXT,
+    ist_test BOOLEAN NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE vorgang_historie (
@@ -111,6 +113,7 @@ CREATE TABLE email_konto (
     imap_port INTEGER NOT NULL DEFAULT 993, imap_user TEXT NOT NULL, imap_passwort TEXT NOT NULL,
     imap_tls BOOLEAN NOT NULL DEFAULT 1, smtp_host TEXT NOT NULL, smtp_port INTEGER NOT NULL DEFAULT 465,
     smtp_user TEXT, smtp_passwort TEXT, smtp_tls BOOLEAN NOT NULL DEFAULT 1,
+    konfiguration_version INTEGER NOT NULL DEFAULT 1,
     letzter_abruf_status TEXT, letzter_abruf_fehler_text TEXT, letzter_abruf_at TEXT,
     created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
@@ -158,6 +161,23 @@ CREATE TABLE termin_zuweisung (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, termin_id TEXT NOT NULL, nutzer_id TEXT NOT NULL,
     aktiv BOOLEAN NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT 'now',
     UNIQUE (termin_id, nutzer_id)
+);
+CREATE TABLE onboarding_postfach_test (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, email_konto_id TEXT NOT NULL,
+    konfiguration_version INTEGER NOT NULL, imap_ok BOOLEAN NOT NULL, smtp_ok BOOLEAN NOT NULL,
+    detail TEXT NOT NULL DEFAULT '', getestet_von TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE onboarding_testvorgang (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL,
+    kunde_id TEXT NOT NULL, objekt_id TEXT, anfrage_id TEXT, erstellt_von TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', UNIQUE (vorgang_id)
+);
+CREATE TABLE preisliste (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, bezeichnung TEXT NOT NULL,
+    einheit TEXT NOT NULL DEFAULT 'Stk.', netto_einzelpreis REAL NOT NULL DEFAULT 0,
+    steuersatz REAL NOT NULL DEFAULT 19, created_at TEXT NOT NULL DEFAULT 'now',
+    updated_at TEXT NOT NULL DEFAULT 'now'
 );
 """
 

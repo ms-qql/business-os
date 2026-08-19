@@ -37,6 +37,7 @@ def register_routes() -> None:
     from app.features.website import public_router, settings_router
     from app.features.angebote import angebote_router
     from app.features.termine import termine_router
+    from app.features.onboarding import routes as onboarding_routes
 
     app.include_router(auth_router)
     app.include_router(users_router)
@@ -52,6 +53,8 @@ def register_routes() -> None:
     app.include_router(internal_router)
     app.include_router(angebote_router)
     app.include_router(termine_router)
+    app.include_router(onboarding_routes.router)
+    app.include_router(onboarding_routes.katalog_router)
 
 
 register_routes()

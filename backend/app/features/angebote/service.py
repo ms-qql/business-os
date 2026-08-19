@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app import storage as storage_mod
-from app.errors import ConflictError, NotFoundError, ValidationError
+from app.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.features.angebote import pdf as pdf_mod
 from app.features.angebote import repository as repo
 from app.features.email import schemas as email_schemas
@@ -121,6 +121,11 @@ def get_angebot_detail(user, angebot_id: str) -> dict:
 
 def create_angebot(user, vorgang_id: str, payload) -> dict:
     vorgang = _require_vorgang(user.mandant_id, vorgang_id)
+    # Edge Case: Testvorgänge dürfen nicht weiterbearbeitet werden (Acceptance-Kriterium).
+    if vorgang.get("ist_test"):
+        raise ForbiddenError(
+            "Aus einem Testvorgang kann kein Angebot erstellt werden."
+        )
     version = 1
     vorgaenger_id = None
     if payload.vorgaenger_angebot_id:

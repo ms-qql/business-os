@@ -12,7 +12,7 @@ def _now() -> str:
 
 VORGANG_COLS = (
     "v.id, v.kunde_id, v.objekt_id, v.status, v.quelle, v.anliegen, v.notizen, "
-    "v.zugewiesener_nutzer_id, v.created_at, v.updated_at"
+    "v.zugewiesener_nutzer_id, v.ist_test, v.created_at, v.updated_at"
 )
 LIST_ITEM_SELECT = (
     f"SELECT {VORGANG_COLS}, k.name AS kunde_name, o.adresse AS objekt_adresse "
@@ -25,7 +25,7 @@ LIST_ITEM_SELECT = (
 
 def list_vorgaenge(mandant_id: str, status: str | None, q: str | None, kunde_id: str | None,
                    zugewiesener_nutzer_id: str | None, limit: int, offset: int) -> tuple[list[dict], int]:
-    where = ["v.mandant_id = %s"]
+    where = ["v.mandant_id = %s", "v.ist_test = FALSE"]
     params: list = [mandant_id]
     if status:
         where.append("v.status = %s")

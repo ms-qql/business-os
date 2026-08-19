@@ -16,7 +16,8 @@ def get_konto(mandant_id: str) -> dict | None:
     rows = db.engine.query(
         "SELECT id, mandant_id, imap_host, imap_port, imap_user, imap_passwort, imap_tls, "
         "smtp_host, smtp_port, smtp_user, smtp_passwort, smtp_tls, "
-        "letzter_abruf_status, letzter_abruf_fehler_text, letzter_abruf_at "
+        "letzter_abruf_status, letzter_abruf_fehler_text, letzter_abruf_at, "
+        "konfiguration_version "
         "FROM email_konto WHERE mandant_id = %s",
         (mandant_id,), mandant_id=mandant_id,
     )
@@ -31,7 +32,8 @@ def upsert_konto(mandant_id: str, imap_host: str, imap_port: int, imap_user: str
         db.engine.command(
             "UPDATE email_konto SET imap_host=%s, imap_port=%s, imap_user=%s, imap_passwort=%s, "
             "imap_tls=%s, smtp_host=%s, smtp_port=%s, smtp_user=%s, smtp_passwort=%s, "
-            "smtp_tls=%s, updated_at=%s WHERE mandant_id=%s",
+            "smtp_tls=%s, updated_at=%s, konfiguration_version = konfiguration_version + 1 "
+            "WHERE mandant_id=%s",
             (imap_host, imap_port, imap_user, imap_passwort, imap_tls, smtp_host, smtp_port,
              smtp_user, smtp_passwort, smtp_tls, _now(), mandant_id),
             mandant_id=mandant_id,

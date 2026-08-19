@@ -56,7 +56,6 @@ export default function WebsiteEinstellungenPage() {
         adresse: settings.adresse,
         oeffnungszeiten: settings.oeffnungszeiten,
         ueber_uns: settings.ueber_uns,
-        domain: settings.domain,
       });
       setSettings(aktualisiert);
       setInfo("Einstellungen gespeichert.");
@@ -141,21 +140,25 @@ export default function WebsiteEinstellungenPage() {
           )}
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSave} className="space-y-4">
-            <div>
-              <Label htmlFor="domain">Öffentliche Domain</Label>
-              <Input
-                id="domain"
-                value={settings.domain ?? ""}
-                onChange={(e) => feld("domain", e.target.value)}
-                placeholder="beispiel.de"
-              />
-              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                DNS muss extern auf diesen Server zeigen. Nach dem Speichern ist die Website
-                sofort unter dieser Domain erreichbar.
-              </p>
+          <div className="mb-4 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)]/40 p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[var(--color-muted-foreground)]">Öffentliche Domain: </span>
+                <span className="font-medium text-[var(--color-foreground)]">
+                  {settings.domain ?? "noch nicht zugeordnet"}
+                </span>
+              </div>
+              <span className="text-[var(--color-muted-foreground)]">
+                Status: {settings.domain_status ?? "inaktiv"}
+              </span>
             </div>
+            <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+              Die Domain wird ausschließlich im begleiteten Onboarding reserviert und mit dem
+              Veröffentlichen-Schritt aktiv geschaltet. Sie ist hier nicht editierbar.
+            </p>
+          </div>
 
+          <form onSubmit={onSave} className="space-y-4">
             <div className="flex items-center gap-4">
               {settings.logo_url && (
                 // eslint-disable-next-line @next/next/no-img-element

@@ -177,19 +177,16 @@ def get_website_settings(mandant_id: str) -> dict:
 def update_website_settings(mandant_id: str, firmenname: str | None, marken_farbe: str | None,
                             telefon: str | None, email: str | None, adresse: str | None,
                             oeffnungszeiten: str | None, ueber_uns: str | None,
-                            leistungen: list[LeistungPatch] | None,
-                            domain: str | None = None) -> dict:
+                            leistungen: list[LeistungPatch] | None) -> dict:
     _get_or_create_settings(mandant_id)
 
     if firmenname is not None and not firmenname.strip():
         raise ValidationError("Firmenname darf nicht leer sein.")
 
-    if domain is not None and domain.strip():
-        hostname = _validate_hostname(domain)
-        owner = repo.find_mandant_id_by_hostname(hostname)
-        if owner and owner != mandant_id:
-            raise ConflictError("Diese Domain ist bereits vergeben.")
-        repo.upsert_domain(mandant_id, hostname)
+    # ADR-7-2: Die Domain-Zuordnung ist kein Schreibpfad mehr. Sie erfolgt
+    # ausschließlich über PUT /onboarding/domain (Reservierung, Status 'inaktiv')
+    # und POST /onboarding/veroeffentlichen (Aktivierung). Hier wird kein
+    # upsert_domain mehr aufgerufen.
 
     fields = {}
     for name, value in (

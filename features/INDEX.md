@@ -10,7 +10,7 @@
 | PROJ-4 | E-Mail-Inbox und Vorgangskommunikation | P0 | Approved | PROJ-1, PROJ-3 | IMAP/SMTP, MIME, Polling und Fehlerlogik extrahieren |
 | PROJ-5 | Angebote: Positionen, PDF, Freigabe und Versand | P0 | Deployed | PROJ-3, PROJ-4 | Versand- und Speicherpfade; Angebotslogik/PDF neu |
 | PROJ-6 | Terminplanung und Teamzuweisung | P0 | Deployed | PROJ-3, PROJ-1 | Deployed 2026-08-18, v0.1.7 · biz.app.msce.info; QA bestanden 7/7 AC, Security-Audit ohne Befund, BUG-1 gefixt+retestet |
-| PROJ-7 | Begleitetes Onboarding: Betriebsdaten, Branding und Postfach | P0 | Planned | PROJ-1, PROJ-2, PROJ-4 | Postfach-Tests und Settings als Vorlage |
+| PROJ-7 | Begleitetes Onboarding: Betriebsdaten, Branding und Postfach | P0 | Approved | PROJ-1, PROJ-2, PROJ-4, PROJ-5 | QA bestanden nach Fix von 2 High-Bugs (Postfach-Test 500, konfiguration_version); Postfach-Tests und Settings als Vorlage |
 | PROJ-8 | PDF-Rechnungen und Rechnungsdokumente | P0 | Planned | PROJ-3, PROJ-5 | Speicher- und Versandpfade; Rechnungsvorlage neu |
 | PROJ-9 | Mobile Monteuransicht und Auftragsabschluss | P1 | Proposed | PROJ-3, PROJ-6 | Kein UI-Reuse; responsive Webansicht neu |
 | PROJ-10 | Erinnerungen und Statusautomationen | P1 | Proposed | PROJ-4, PROJ-5, PROJ-6 | Reminder-Sweeper und Versandvorbereitung als Vorlage |
