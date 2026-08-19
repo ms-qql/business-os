@@ -179,7 +179,49 @@ Abschnitt D benennt für jeden Schreibpfad den nötigen Lesepfad (z. B. `GET /vo
 - Keine. Status wird auf Architected gesetzt.
 
 ## QA Test Results
-_To be added by /qa_
+**Getestet:** 2026-08-19 · **Ergebnis:** NOT READY (2 Bugs: 1 Critical, 1 Medium)
+
+### Automatisierte Tests
+- Backend: `.venv/bin/python -m pytest` — 189/189 grün (156 bestehend + 33 rechnungen), keine Regression.
+- Eigene Red-Team-Suite `backend/tests/features/rechnungen/test_qa_redteam.py` (8 Tests, unabhängig vom Feature-Entwickler geschrieben) — alle grün: Cross-Tenant über alle 9 Endpunkte, Monteur-403 auf allen Routen, Büro darf Rechnungsstellerprofil nicht schreiben, JWT-Tampering (falsche Signatur → 401), SQL-Injection in `bezeichnung` (literal gespeichert, keine Injection), `mandant_id` aus Body wird ignoriert.
+- Frontend: `npx tsc --noEmit` — clean.
+
+### Akzeptanzkriterien (AC1–AC10)
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| AC1 | Nur aus „Erledigt“-Vorgang anlegen, sonst 409 mit dt. Meldung | ✅ PASS |
+| AC2 | Entwurf enthält Nummer/Datum/Steller/Kunde/≥1 Position/Summen | ✅ PASS |
+| AC3 | Position mit Bezeichnung/Menge/Einheit/Preis/Steuersatz, Summen konsistent auf 2 NK | ✅ PASS (Test: 2×80€ @19% = 160/30.40/190.40) |
+| AC4 | Angebotspositionen übernehmbar, danach unabhängig änderbar | ✅ PASS |
+| AC5 | Freigabeansicht zeigt Empfänger/Betreff/Nummer/PDF/Brutto, nur „Senden“ löst Versand aus | ✅ PASS (Backend zweistufig `freigabe`→`senden`); Frontend-Dialog exakt so implementiert |
+| AC6 | Versendete Rechnung unveränderlich: PDF/Nummer/Empfänger/Zeitpunkt/Fassung am Vorgang | ✅ PASS (Test: PATCH nach Versand → 409) |
+| AC7 | Zahlungsstatus exakt Offen/Bezahlt/Storniert, ändert nie PDF/Positionen | ✅ PASS („Storniert“ nur über Storno-Endpoint, Backend-Test bestätigt) |
+| AC8 | Korrektur nur als Storno oder neue Rechnung, Original bleibt abrufbar | ✅ PASS |
+| AC9 | Nur Inhaber/Büro dürfen schreiben/lesen; Monteur sieht nichts | ✅ PASS (Backend `require_role` + Frontend `darfSchreiben`-Gate; Red-Team bestätigt 403 auf allen Routen) |
+| AC10 | Nur PDF, kein E-Rechnung/DATEV/Mahnung/Auto-Erstellung | ✅ PASS (kein entsprechender Code vorhanden) |
+
+Alle Edge Cases aus der Spec inhaltlich im Backend abgedeckt (Nummer nie wiederverwendet nach Storno — eigener Test bestätigt; Versandfehler ändert Zahlungsstatus nicht — eigener Test bestätigt; fehlende Objektanschrift/E-Mail blockt Freigabe — eigener Test bestätigt).
+
+### Gefundene Bugs
+
+**BUG-1 (Critical) — Rechnungssteller-Profil: Feldnamen-Mismatch Frontend/Backend, Feature komplett blockiert**
+- Backend-Contract (`backend/app/features/rechnungen/schemas.py::RechnungsstellerProfilIn/Read`, deckt sich mit Tech Design Abschnitt B): `firma_name, strasse, hausnummer, plz, ort, steuernummer, ust_id`.
+- Frontend (`nextjs_app/lib/schemas/rechnung.ts::rechnungsstellerSchema`, `lib/api/rechnungen.ts::RechnungsstellerProfil`, `rechnungssteller-profil-form.tsx`) verwendet stattdessen: `name, anschrift, steuerkennzeichnung`.
+- Reproduktion (eigener Testlauf, kein Übernehmen von Dev-Aussage): `PUT /einstellungen/rechnungssteller` mit dem Payload, den das Frontend-Formular tatsächlich sendet, liefert `422 Field required` für alle 5 Backend-Pflichtfelder.
+- Auswirkung: Inhaber kann das Rechnungsstellerprofil über die UI **nie** speichern → `POST /rechnungen/{id}/freigabe` schlägt für **jede** Rechnung mit „Es ist noch kein vollständiges Rechnungsstellerprofil hinterlegt“ fehl → **kein Versand über die UI möglich**. Kernfunktion des Features nicht nutzbar.
+- Fix-Vorschlag: Frontend-Schema/Formular/API-Typ an Backend-Contract angleichen (5 Felder `firma_name/strasse/hausnummer/plz/ort` + optionale `steuernummer/ust_id`), nicht umgekehrt — Backend folgt korrekt dem reviewten Tech Design.
+
+**BUG-2 (Medium) — „Storniert am“ wird nie angezeigt (Feldnamen-Mismatch)**
+- Backend liefert `storniert_at`/`storniert_von` (`RechnungListItem`/`RechnungDetail` in `schemas.py`, deckt sich mit DB-Spalte `rechnung.storniert_at`).
+- Frontend (`app/(app)/rechnungen/[id]/page.tsx:182`, `lib/api/rechnungen.ts` Interface `Rechnung`) liest/deklariert `storno_at`/`storno_von`.
+- Auswirkung: Nach Storno bleibt der Zeitpunkt in der UI unsichtbar (Feld ist immer `undefined`); Storno-Status selbst (Badge) funktioniert, da er aus `status` kommt, nicht betroffen. Kein Datenverlust, nur fehlende Anzeige — Nachvollziehbarkeit-Anforderung („mit Nutzer und Zeitpunkt … nachvollziehbar“) ist im Backend/Historie erfüllt, nur nicht in diesem UI-Feld sichtbar.
+- Fix-Vorschlag: Frontend-Feldnamen auf `storniert_at`/`storniert_von` korrigieren.
+
+### Security-Audit (Red Team)
+Keine Findings über die dokumentierten 2 Bugs hinaus. Cross-Tenant-Isolation über alle 9 Rechnungs-Endpunkte + Rechnungsstellerprofil bestätigt hart (404/403, keine Datenlecks). RLS-Policies in `009_rechnungen.sql` vorhanden und konsistent zum bestehenden Muster. `mandant_id` ausschließlich aus JWT, nie aus Pfad/Body (Body-Injection-Versuch mit fremder `mandant_id` bestätigt wirkungslos). SQL-Injection-Versuch über unvalidiertes Textfeld schlägt fehl (parametrisierte Queries). JWT-Tampering (Mandanten-ID ändern + neu signieren mit falschem Secret) wird mit 401 abgelehnt.
+
+### Production-Ready-Entscheidung
+**NOT READY** — BUG-1 ist Critical (Kernfunktion nicht nutzbar), BUG-2 Medium. Beide müssen vor Deploy gefixt werden.
 
 ## Deployment
 _To be added by /deploy_
