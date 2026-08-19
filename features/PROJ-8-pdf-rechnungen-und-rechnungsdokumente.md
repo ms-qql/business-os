@@ -223,5 +223,23 @@ Keine Findings über die dokumentierten 2 Bugs hinaus. Cross-Tenant-Isolation ü
 ### Production-Ready-Entscheidung
 **NOT READY** — BUG-1 ist Critical (Kernfunktion nicht nutzbar), BUG-2 Medium. Beide müssen vor Deploy gefixt werden.
 
+## QA Re-Verifikation (Fix-Runde 1)
+**Getestet:** 2026-08-19 · **Ergebnis:** READY
+
+Frontend-Fix (t_0b632a10) unabhängig re-verifiziert (kein Übernehmen von Dev-Aussage) — eigener Codeabgleich Frontend↔Backend-Contract + eigener Testlauf.
+
+- **BUG-1 (Critical):** ✅ VERIFIED FIXED. `rechnungsstellerSchema` (`lib/schemas/rechnung.ts`), `RechnungsstellerProfil`-Interface (`lib/api/rechnungen.ts`) und Formular (`rechnungssteller-profil-form.tsx`) nutzen jetzt exakt die 7 Backend-Felder `firma_name/strasse/hausnummer/plz/ort` (Pflicht) + `steuernummer/ust_id` (optional) — 1:1 Abgleich gegen `backend/app/features/rechnungen/schemas.py::RechnungsstellerProfilIn/Read` bestätigt.
+- **BUG-2 (Medium):** ✅ VERIFIED FIXED. `page.tsx:182` liest jetzt `rechnung.storniert_at`, Interface `Rechnung` deklariert `storniert_at`/`storniert_von` — deckt sich mit Backend (`repository.py`, `schemas.py`).
+- Backend unangetastet, wie angekündigt (`git status`/`git diff --stat` bestätigt).
+
+### Automatisierte Tests (eigener Lauf)
+- `backend/.venv/bin/python -m pytest -q` (volle Suite): grün, keine Regression.
+- `backend/.venv/bin/python -m pytest tests/features/rechnungen/ -q`: 31/31 grün (inkl. 8 Red-Team-Tests).
+- `npx tsc --noEmit`: clean.
+- `npm run build`: exit 0, `/rechnungen/[id]` und `/einstellungen/rechnungssteller` bauen ohne Fehler.
+
+### Production-Ready-Entscheidung
+**READY** — keine offenen Critical/High/Medium-Bugs. Freigegeben für Deploy.
+
 ## Deployment
 _To be added by /deploy_
