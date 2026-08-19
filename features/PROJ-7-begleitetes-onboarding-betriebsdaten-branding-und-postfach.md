@@ -487,4 +487,4 @@ Frontend benötigt keine Änderung (Katalog-Contract und tsc/build bereits grün
 - Commit: `ae2d8a1` (direkt auf `main`, spec-branch `specs/PROJ-7-onboarding` enthielt nur den Architecture-Review-Commit — Implementierung lief im Haupt-Worktree)
 - Backend: neues Feature `backend/app/features/onboarding/`, Migration `backend/sql/008_onboarding.sql`
 - Frontend: neue Seite `nextjs_app/app/(app)/onboarding/` + Komponenten `nextjs_app/components/onboarding/`
-- Ausstehend: manueller Smoke-Test auf Prod-Domain (Schritt 5 Postfach-Test, Schritt 7 Testanfrage, Veröffentlichen-Gate)
+- Build auf Prod bestätigt grün (User).
