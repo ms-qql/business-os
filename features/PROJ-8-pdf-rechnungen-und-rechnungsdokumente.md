@@ -1,6 +1,6 @@
 # PROJ-8: PDF-Rechnungen und Rechnungsdokumente
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-08-16
 
 ## Annahmen
@@ -88,7 +88,7 @@ Monteur sieht weder Rechnungs-Card noch Rechnungs-API-Daten. Das Backend erzwing
 Alle neuen Fachtabellen tragen `mandant_id`. FastAPI liest ihn ausschließlich aus dem JWT; raw-SQL-Queries filtern zusätzlich nach `mandant_id`; PostgreSQL-RLS beschränkt jede Tabelle auf `app.current_mandant_id`.
 
 - **rechnungsstellerprofil:** genau ein fachliches Profil je Mandant: Name, vollständige Anschrift sowie Steuerkennzeichnung. Es ist Quelle für neue Entwürfe, nicht für bereits versendete Belege.
-- **rechnung:** gehört zu einem Vorgang. Felder: Nummer, Rechnungs- und Leistungsdatum, Status (`entwurf`, `versendet`, `storniert`), Zahlungsstatus (`Offen`, `Bezahlt`, `Storniert`), Summen, Empfänger-E-Mail, Freigabe-/Versandzeitpunkt, versendender Nutzer, Verweis auf aktuelle Rechnungsfassung und optionaler Stornozeitpunkt/-nutzer. Eine versendete oder stornierte Rechnung ist nicht mehr änderbar.
+- **rechnung:** gehört zu einem Vorgang. Felder: Nummer, Rechnungs- und Leistungsdatum, Status (`entwurf`, `versendet`, `storniert`), Zahlungsstatus (`Offen`, `Bezahlt`, `Storniert`), Summen, Empfänger-E-Mail, Freigabe-/Versandzeitpunkt, versendender Nutzer, Verweis auf aktuelle Rechnungsfassung und optionaler Stornozeitpunkt/-nutzer. Eine versendete oder stornierte Rechnung ist nicht mehr änderbar. Der Kunde ist über den Vorgang referenziert; ein Kunde mit Rechnung darf nicht gelöscht werden.
 - **rechnung_position:** gehört nur zum Entwurf: Bezeichnung, Menge, Einheit, Netto-Einzelpreis, Steuersatz, Sortierung. Netto, Steuer und Brutto werden pro Position auf zwei Nachkommastellen gerundet und daraus aggregiert. Keine Rabatte in V1: Rechnungen übernehmen daraus resultierende Angebotswerte als Preise, nicht Angebotsrabattlogik.
 - **rechnung_fassung:** bei erfolgreichem Versand exakt eine unveränderliche Fassung. Sie hält den Rechnungs-Kopf, Rechnungssteller-Snapshot, Kunden-/Objektanschrift-Snapshot, Positionen und Summen als Belegstand sowie `dokument_id`. Spätere Stammdatenänderungen berühren sie nicht.
 - **rechnung_nummernkreis:** ein Zähler pro Mandant. Nummer wird beim Anlegen des Entwurfs reserviert, damit sie bereits im Entwurf sichtbar und auch bei Storno nie wiederverwendet ist. Der Zähler wird innerhalb einer DB-Transaktion gesperrt und erhöht; eine zusätzliche eindeutige DB-Constraint auf `(mandant_id, rechnungsnummer)` ist die zweite Absicherung gegen parallele Anfragen.
@@ -130,6 +130,7 @@ Alle folgenden Endpunkte verlangen JWT und `require_role("Buero", "Inhaber")`; `
 | **rechnung.status / Versandmetadaten** | Büro/Inhaber nur via `POST /rechnungen/{id}/senden` | `POST /rechnungen/{id}/freigabe` erfolgreich | Einziger Versandpfad; verhindert Auto-Versand. |
 | **zahlungstatus und Storno** | Büro/Inhaber via Zahlungsstatus- bzw. Storno-Endpunkt | `GET /rechnungen/{id}` | Nur versendet; Statuswechsel erzeugt Historie, verändert Belegdaten nie. |
 | **vorgang_historie** | Rechnungsservice als Nebeneffekt jedes oben genannten Fachschritts | Zugehörigkeit wurde im jeweiligen Rechnungs-Lesepfad geprüft | Kein direkter Client-Schreibpfad. |
+| **Kunde-Löschsperre bei Rechnung (bestehender Pfad)** | Büro/Inhaber über bestehenden `DELETE /kunden/{id}`; `delete_kunde`-Service | `GET /kunden/{id}`; systemintern `has_vorgaenge(mandant_id, kunde_id)` und neu `has_rechnungen(mandant_id, kunde_id)` | `has_rechnungen` prüft mandantenbegrenzt Rechnungen des Kunden über deren Vorgang. Besteht mindestens eine, beendet der Service den Löschvorgang mit 409; die Rechnung und ihr Beleg bleiben erhalten. |
 
 ### E) Technische Entscheidungen (ADRs)
 - **ADR-8-1 – Eigenständige Rechnungstabellen:** Keine Erweiterung von `angebot` oder `vorgang_dokument`. So bleiben Angebotsversionen und rechtlich relevante, unveränderliche Belege sauber getrennt; PDF-Ablage und Versand werden trotzdem wiederverwendet.
@@ -143,10 +144,14 @@ Alle folgenden Endpunkte verlangen JWT und `require_role("Buero", "Inhaber")`; `
 - `VorgangRechnungen` wird nur für Büro/Inhaber im bestehenden Vorgangsdetail angezeigt; Liste, Detail, PDF und alle Rechnungs-Endpunkte erhalten denselben Rollen-Guard.
 - Angebotsübernahme kopiert nur Positionen in die neue Rechnung. Danach gibt es keine Kopplung: Rechnungspositionen dürfen geändert werden, Angebotspositionen bleiben unverändert.
 - Freigabe lehnt fehlendes Rechnungsstellerprofil, fehlende Kunden-/Objektanschrift, Leistungsdatum, Position oder E-Mail mit deutscher Meldung ab. Ein fehlendes Objekt ist daher kein stiller Fallback auf eine unvollständige Kundenadresse.
+- Die bestehende Kundenlöschung wird mit PROJ-8 vervollständigt: `delete_kunde` prüft neben Vorgängen auch `has_rechnungen(mandant_id, kunde_id)` im Kunden-Repository und lehnt bei vorhandener Rechnung mit 409 ab. Das schützt Entwürfe, versendete Belege und Stornos vor dem Verlust ihres Kundenbezugs.
 - Keine automatische Rechnungsanlage, Mahnung, Zahlungsschnittstelle, DATEV-, XRechnung- oder ZUGFeRD-Ausgabe.
 
 ## Architecture Review (abc-review-architecture)
-**Reviewed:** 2026-08-19 · **Verdict:** Architected
+**Reviewed:** 2026-08-19 (Re-Review nach Nachbesserung) · **Verdict:** Architected
+
+### Re-Review (Runde 2)
+Nachbesserung geprüft: Kunde-Löschsperre-Zeile in Abschnitt D + Umsetzungsgrenzen-Satz in Abschnitt F ergänzt (`has_rechnungen(mandant_id, kunde_id)`). Gegen Code verifiziert: `backend/app/features/kunden/routes.py:45-47` (`DELETE /kunden/{id}` → `delete_kunde`-Service), `kunden/repository.py:98-116` (bestehender `delete_kunde`, `has_vorgaenge`-Vorbild, ponytail-TODO für `has_rechnungen` genau an erwarteter Stelle). Kein weiterer offener Punkt.
 
 ### Checklist
 - [x] Component structure — ok, `VorgangRechnungen`/`RechnungEntwurf`/`RechnungFreigabe` neben bestehendem `VorgangAngebote`; kein vages UI.
