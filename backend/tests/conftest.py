@@ -179,6 +179,37 @@ CREATE TABLE preisliste (
     steuersatz REAL NOT NULL DEFAULT 19, created_at TEXT NOT NULL DEFAULT 'now',
     updated_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE rechnung_nummernkreis (
+    mandant_id TEXT PRIMARY KEY, letzte_nummer INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE rechnungsstellerprofil (
+    mandant_id TEXT PRIMARY KEY, firma_name TEXT NOT NULL, strasse TEXT NOT NULL,
+    hausnummer TEXT NOT NULL, plz TEXT NOT NULL, ort TEXT NOT NULL,
+    steuernummer TEXT, ust_id TEXT, updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE rechnung (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL,
+    rechnungsnummer TEXT NOT NULL, rechnungsdatum TEXT NOT NULL, leistungsdatum TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'entwurf', zahlungsstatus TEXT NOT NULL DEFAULT 'Offen',
+    netto_summe REAL NOT NULL DEFAULT 0, steuer_summe REAL NOT NULL DEFAULT 0,
+    brutto_summe REAL NOT NULL DEFAULT 0, empfaenger_email TEXT,
+    fassung_id TEXT, freigabe_vorbereitet_at TEXT, versendet_at TEXT, versendet_von TEXT,
+    storniert_at TEXT, storniert_von TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (mandant_id, rechnungsnummer)
+);
+CREATE TABLE rechnung_position (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, rechnung_id TEXT NOT NULL,
+    bezeichnung TEXT NOT NULL, menge REAL NOT NULL, einheit TEXT NOT NULL,
+    netto_einzelpreis REAL NOT NULL, steuersatz REAL NOT NULL, sortierung INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE rechnung_fassung (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, rechnung_id TEXT NOT NULL,
+    rechnungsnummer TEXT NOT NULL, kopf_json TEXT NOT NULL, rechnungssteller_json TEXT NOT NULL,
+    kunde_json TEXT NOT NULL, objekt_json TEXT NOT NULL, positionen_json TEXT NOT NULL,
+    summen_json TEXT NOT NULL, dokument_id TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
 """
 
 
