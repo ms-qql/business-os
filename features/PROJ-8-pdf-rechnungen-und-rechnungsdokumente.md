@@ -1,6 +1,6 @@
 # PROJ-8: PDF-Rechnungen und Rechnungsdokumente
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-16
 
 ## Annahmen
