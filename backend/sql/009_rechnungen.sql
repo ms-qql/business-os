@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS rechnung (
     steuer_summe NUMERIC(12, 2) NOT NULL DEFAULT 0,
     brutto_summe NUMERIC(12, 2) NOT NULL DEFAULT 0,
     empfaenger_email TEXT,
-    fassung_id UUID REFERENCES rechnung_fassung(id) ON DELETE SET NULL,
+    fassung_id UUID,
     freigabe_vorbereitet_at TIMESTAMPTZ,
     versendet_at TIMESTAMPTZ,
     versendet_von UUID REFERENCES nutzer(id) ON DELETE SET NULL,
@@ -80,6 +80,17 @@ CREATE TABLE IF NOT EXISTS rechnung_fassung (
     dokument_id UUID REFERENCES vorgang_dokument(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'rechnung_fassung_id_fkey'
+    ) THEN
+        ALTER TABLE rechnung
+            ADD CONSTRAINT rechnung_fassung_id_fkey
+            FOREIGN KEY (fassung_id) REFERENCES rechnung_fassung(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 ALTER TABLE rechnung_nummernkreis ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rechnungsstellerprofil ENABLE ROW LEVEL SECURITY;
