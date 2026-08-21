@@ -34,7 +34,7 @@ def register_routes() -> None:
     from app.features.users import users_router
     from app.features.users.routes import nutzer_router
     from app.features.vorgaenge import anfragen_router, vorgaenge_router
-    from app.features.website import public_router, settings_router
+    from app.features.website import public_router, settings_router, builder_router
     from app.features.angebote import angebote_router
     from app.features.termine import termine_router
     from app.features.rechnungen import rechnungen_router
@@ -47,6 +47,7 @@ def register_routes() -> None:
     app.include_router(admin_router)
     app.include_router(public_router)
     app.include_router(settings_router)
+    app.include_router(builder_router)
     app.include_router(kunden_router)
     app.include_router(vorgaenge_router)
     app.include_router(anfragen_router)

@@ -36,6 +36,9 @@ class PublicSite(BaseModel):
     oeffnungszeiten: Optional[str] = None
     ueber_uns: Optional[str] = None
     leistungen: list[PublicLeistung]
+    # PROJ-12: sortierte, ausschließlich sichtbare Baukasten-Sektionen in
+    # Renderer-Form (keine unsichtbare Sektion, kein Objektpfad).
+    sections: list[dict] = []
 
 
 class WebsiteSettingsRead(BaseModel):

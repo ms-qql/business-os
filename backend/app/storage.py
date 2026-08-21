@@ -16,6 +16,9 @@ class BaseStorage:
     def presigned_get_url(self, object_key: str, expires_seconds: int = 3600) -> str:
         raise NotImplementedError
 
+    def delete_object(self, object_key: str) -> None:
+        raise NotImplementedError
+
 
 class MinioStorage(BaseStorage):
     """Production storage (MinIO, S3-compatible). Client connects lazily on
@@ -54,6 +57,10 @@ class MinioStorage(BaseStorage):
             expires=datetime.timedelta(seconds=expires_seconds),
         )
 
+    def delete_object(self, object_key: str) -> None:
+        client = self._get_client()
+        client.remove_object(settings.minio_bucket, object_key)
+
 
 class InMemoryStorage(BaseStorage):
     """Test double: keeps bytes in-process, returns a stable fake URL."""
@@ -66,6 +73,9 @@ class InMemoryStorage(BaseStorage):
 
     def presigned_get_url(self, object_key: str, expires_seconds: int = 3600) -> str:
         return f"memory://{object_key}"
+
+    def delete_object(self, object_key: str) -> None:
+        self._objects.pop(object_key, None)
 
 
 storage: BaseStorage = MinioStorage()

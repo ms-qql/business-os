@@ -210,6 +210,22 @@ CREATE TABLE rechnung_fassung (
     kunde_json TEXT NOT NULL, objekt_json TEXT NOT NULL, positionen_json TEXT NOT NULL,
     summen_json TEXT NOT NULL, dokument_id TEXT, created_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE website_landingpage (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL UNIQUE, version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE website_section (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, landingpage_id TEXT NOT NULL,
+    typ TEXT NOT NULL, visible BOOLEAN NOT NULL DEFAULT 1, position INTEGER NOT NULL,
+    inhalt TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT 'now',
+    updated_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (mandant_id, landingpage_id, position)
+);
+CREATE TABLE website_section_bild (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, section_id TEXT NOT NULL UNIQUE,
+    objektpfad TEXT NOT NULL, alt_text TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT 'now'
+);
 """
 
 

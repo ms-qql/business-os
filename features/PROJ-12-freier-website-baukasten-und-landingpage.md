@@ -1,6 +1,6 @@
 # PROJ-12: Freier Website-Baukasten und hochwertige Landingpage
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -249,7 +249,55 @@ Reihenfolgenänderungen bei paralleler Bearbeitung, ohne Echtzeit-Infrastruktur.
 Keine. Owner- und Lesepfad-Check für jede Entität bestanden, keine Code-Kollisionen, keine offene Produktentscheidung.
 
 ## QA Test Results
-_To be added by /abc-qa_
+**Getestet:** 2026-08-21 · **Tester:** jupiter-qa · **Verdict: READY** (keine Critical/High-Bugs)
+
+### Akzeptanzkriterien
+| # | Kriterium | Status |
+|---|---|---|
+| 1 | Öffentliche Startseite folgt Referenzaufbau (Kopf, Hero+Kurzformular, Über-uns, Leistungen, Ablauf, Kennzahlen, FAQ, Kontakt, CTA, Footer) | ✅ PASS — `section-renderer.tsx` deckt alle 8 Typen; `GET /public/site` liefert sie sortiert/sichtbar (eigener curl-Test gegen echte Postgres+RLS bestätigt) |
+| 2 | Inhaber: Sektionen hinzufügen/entfernen/ein-ausblenden/sortieren | ✅ PASS — 8 Endpunkte, `page.tsx` UI vollständig (Pfeile hoch/runter, Löschen mit Bestätigung, Sichtbar-Checkbox); pytest deckt add/delete/reihenfolge |
+| 3 | Sektion zeigt nur passende Felder; Textfelder ohne Überlauf 375px–Desktop | ✅ PASS (Code-Review) — `SectionEditor`/`InhaltFelder` sind typendiskriminiert; Renderer nutzt `whitespace-pre-wrap`, responsive Grid-Klassen (`sm:`/`md:`/`lg:`) durchgängig. **Browser-Viewport-Screenshot nicht möglich** (siehe Limitation) |
+| 4 | Bild-Upload/-Ersetzen/-Entfernen für Hero/Text-mit-Bild, Textvariante ohne Bild nutzbar | ✅ PASS — eigener pytest-Redteam-Lauf + Dev-Tests bestätigen Upload/Delete/Ablehnung Nicht-Bild-Typ; Renderer zeigt "Kein Bild hinterlegt"-Fallback |
+| 5 | Hero-Kurzformular (Name + mind. 1 Kontaktweg) übergibt an Anfrageformular | ✅ PASS (Code-Review) — `speichereKurzformular`/`liesKurzformular` via sessionStorage, `AnfragePage` übernimmt Vorgabe als defaultValues |
+| 6 | Kurzformular erzeugt selbst keine Anfrage; Abbruch erzeugt keinen Vorgang | ✅ PASS — sessionStorage wird nur clientseitig gehalten, kein Backend-Schreibpfad vor `POST /public/anfragen` |
+| 7 | Leistungssektion nutzt aktive PROJ-2-Leistungen, editierbarer Leerzustand bei 0 aktiven | ✅ PASS — eigener Live-Test: Testmandant mit 0 aktiven Leistungen liefert `leistungen: []`; Renderer zeigt neutralen Leerzustand mit Telefon/E-Mail-Fallback statt defektem Raster |
+| 8 | FAQ/Kennzahlen/Ablauf/CTAs konfigurierbar, CTA-Ziele nur anfrage/leistungen/kontakt | ✅ PASS — Pydantic-`Literal`-Diskriminator erzwingt das serverseitig; eigener Redteam-Versuch mit `cta_typ: "javascript:alert(1)"` → 422 |
+| 9 | Öffentliche Inhalte/Bilder nur über zugehörige Mandantendomain; Inhaber nur eigene Inhalte | ✅ PASS — eigener Redteam: Cross-Tenant PATCH/DELETE/Bild-Upload auf fremde Section → alle 404, Ziel-Section unverändert; öffentliche Sites per Host isoliert (eigener Live-Test mit 2 Domains) |
+| 10 | Tastaturbedienbar, deutsche Beschriftungen, verständliche Fehlermeldungen | ✅ PASS (Code-Review) — native `<button>`/`<input>`/`<select>` mit `aria-label` je Zeile/Aktion, alle sichtbaren Texte deutsch, 409-Konfliktmeldung deutsch geprüft |
+
+### Edge Cases (Code-Review, nicht alle live browser-verifizierbar)
+- Gelöschtes/ausgeblendetes Hero → Seite bleibt mit Rest-Sektionen nutzbar: ✅ (kein "mind. 1 sichtbar"-Zwang im Code, Renderer ignoriert fehlende Typen sicher)
+- Lange Texte umbrechen responsiv: ✅ Code (`whitespace-pre-wrap`, keine fixen Höhen) — visuell nicht verifizierbar (Limitation)
+- Bild-Upload-Ablehnung bei falschem Format/Größe: ✅ PASS (pytest: `test_upload_bild_rejects_non_image`, deutsche Meldungen im Service)
+- Fehlendes Bild kein Broken-Icon: ✅ Code — bedingtes Rendering, kein `<img>` ohne `bild.url`
+- Kurzformular ohne Telefon/E-Mail wird abgelehnt: ✅ Code (`HeroKurzformular.onSubmit`-Validierung + deutsche Fehlermeldung)
+- Inaktive/fremde Leistungen nie veröffentlicht: ✅ PASS — `list_active_leistungen` filtert serverseitig, kein IDs-Speichern im Sektionstyp
+- Reihenfolge-Konflikt bei paralleler Bearbeitung → 409 deutsch, kein fremder Mandanteninhalt gespeichert: ✅ PASS (pytest `test_add_section_wrong_version_is_409` + eigener Redteam-Test)
+
+### Security-Redteam (eigener, unabhängiger Testlauf)
+11 selbst geschriebene Angriffstests (nicht die Dev-Tests) gegen laufende pytest-Fixture-API, alle 11 bestanden:
+- Cross-Tenant PATCH/DELETE/Bild-Upload auf fremde Section → 404, keine Datenänderung
+- Kein Token → 401; Nicht-Inhaber-Rolle (Buero) → 403
+- Extra-Body-Feld `mandant_id` im Request wird ignoriert (Server liest `mandant_id` ausschließlich aus Session-Lookup, nie aus Body)
+- CTA-Ziel außerhalb des Enums (`javascript:alert(1)`) → 422 (Pydantic Literal)
+- SQLi-Payload im `type`-Feld → 422 (Pydantic Literal, kein Query-String-Interpolationspfad)
+- HTML/Script im Textfeld wird als reiner String gespeichert (kein serverseitiges Escaping nötig — React escaped beim Rendern automatisch; keine `dangerouslySetInnerHTML`-Stelle im Renderer gefunden)
+- Öffentliche Sites zweier Mandanten über unterschiedliche Hosts liefern getrennte Inhalte
+- Veraltete `version` → 409 mit deutscher Konfliktmeldung, Serverzustand unverändert
+
+Zusätzlich Live-Verifikation gegen echte PostgreSQL 16 (Docker) mit angewendeten RLS-Policies (nicht nur die SQLite-Testsuite): Initialisierung, Cross-Tenant-Isolation und `GET /public/site` mit `sections` bestätigt funktionsfähig unter echtem RLS.
+
+### Regressionstest
+- Backend: `backend/.venv/bin/python -m pytest` → **217 passed**, keine Fehlschläge (inkl. 18 Website-Builder-Tests des Dev + Kern-Domänen Kunden/Vorgänge/Rechnungen/Termine/Angebote/Onboarding/E-Mail unverändert grün).
+- Next.js: `tsc --noEmit` exit 0, `next build` exit 0 (alle Routen inkl. `/website-builder` und `/site` kompilieren, keine neuen Warnungen).
+
+### Bugs
+Keine Critical/High/Medium-Bugs gefunden. Keine Low-Bugs dokumentiert.
+
+### Limitation (ehrlich vermerkt, siehe abc-qa-e2e §6/§10)
+Der Browser-Tool-Daemon (agent-browser/Chromium headless) in dieser Umgebung hing bei jedem `browser_navigate`-Versuch (Timeout nach 60s, verwaiste Chrome-Subprozesse). Trotz Neuinstallation (`npx agent-browser install --with-deps`) und mehrfachem Retry keine funktionierende Navigation möglich — **kein Hermes/Umgebungsproblem des Features**, sondern ein Tooling-Defekt in dieser QA-Session. Als Ersatz: Live-API-Smoke gegen echten uvicorn-Prozess + echte PostgreSQL 16 (Docker) mit angewendeten RLS-Migrationen, SSR-HTML-Abruf (`curl` gegen `next start`-Build) zur Bestätigung, dass die Seite ohne Serverfehler rendert, und Code-Review der responsiven Klassen für AC3/Edge-Cases. Empfehlung: vor dem nächsten Browser-E2E-Lauf `agent-browser`-Daemon neu starten oder Playwright direkt nutzen.
+
+Hinweis: `backend/sql/009_rechnungen.sql` (PROJ-8, nicht PROJ-12) hat einen vorbestehenden zirkulären FK-Bug (`rechnung.fassung_id → rechnung_fassung`, aber `rechnung_fassung` wird erst danach angelegt) — fällt nur beim frischen `apply_migrations.py`-Lauf auf leerer DB auf (pytest nutzt SQLite-Fixtures, nicht betroffen). Nicht PROJ-12-Scope, hier nur zur Kenntnisnahme dokumentiert; separates Ticket empfohlen.
 
 ## Deployment
 _To be added by /abc-deploy_

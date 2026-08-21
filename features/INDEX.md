@@ -15,7 +15,7 @@
 | PROJ-9 | Mobile Monteuransicht und Auftragsabschluss | P1 | Proposed | PROJ-3, PROJ-6 | Kein UI-Reuse; responsive Webansicht neu |
 | PROJ-10 | Erinnerungen und Statusautomationen | P1 | Proposed | PROJ-4, PROJ-5, PROJ-6 | Reminder-Sweeper und Versandvorbereitung als Vorlage |
 | PROJ-11 | Datenschutz, Datenexport und Aufbewahrung | P1 | Proposed | PROJ-1 | Retention-, Lösch- und Exportmuster als Vorlage |
-| PROJ-12 | Freier Website-Baukasten und hochwertige Landingpage | P1 | In Progress | PROJ-1, PROJ-2 | Nutzt vorhandenes Branding, Bildspeicher, Leistungen und Anfrageformular |
+| PROJ-12 | Freier Website-Baukasten und hochwertige Landingpage | P1 | Approved | PROJ-1, PROJ-2 | Nutzt vorhandenes Branding, Bildspeicher, Leistungen und Anfrageformular |
 
 ## Empfohlene Build-Reihenfolge
 
