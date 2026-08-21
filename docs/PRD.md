@@ -24,7 +24,7 @@ Sekundär: Bürokräfte und Monteure derselben Betriebe. Bürokräfte pflegen Vo
 | Bereich | Festlegung |
 |---|---|
 | Startsegment | SHK-Service |
-| Auslieferung der Website | Geführte, je Mandant eingerichtete Vorlage |
+| Auslieferung der Website | Je Mandant konfigurierbare Landingpage aus freigegebenen Sektionen |
 | Eingangskanäle V1 | Website-Formular und E-Mail |
 | Rollen | Inhaber, Büro, Monteur |
 | Mandantenmodell | Multi-Tenant mit strikt getrennten Betriebsdaten |
@@ -48,6 +48,7 @@ Sekundär: Bürokräfte und Monteure derselben Betriebe. Bürokräfte pflegen Vo
 | P1 | Datenschutz, Datenexport und Aufbewahrung | Mandantenexport und automatisierte Löschregeln ergänzen |
 | P1 | KI-Assistenz | Zusammenfassungen, Klassifizierung und Textentwürfe mit Freigabe |
 | P1 | Branchenpakete | Weitere Gewerke als konfigurierte Vorlage statt eigener Anwendung |
+| P1 | Freier Website-Baukasten und Landingpage | Hochwertige, modular konfigurierbare Startseite mit Bildern und Kurzformular |
 | P2 | E-Rechnungen | Strukturierte Rechnungsformate ergänzen |
 | P2 | Telefonie, Routen, Kundenportal | Nur bei belegtem Kundenbedarf |
 
@@ -63,7 +64,7 @@ Sekundär: Bürokräfte und Monteure derselben Betriebe. Bürokräfte pflegen Vo
 - Deutschsprachiges, mobiles Webprodukt; öffentliche Seiten müssen suchmaschinenfreundlich sein.
 - Datenschutz nach DSGVO: Mandantentrennung, Zugriff nach Rolle, transparente Verarbeitung, Lösch- und Exportmöglichkeit.
 - Persönliches Onboarding ist Teil des Angebots; Selbstkonfiguration ist kein V1-Erfolgsmaßstab.
-- V1 wird mit einer geführten SHK-Vorlage entwickelt; keine freie Website-Baukasten-Logik.
+- Der Baukasten bleibt auf freigegebene, responsive Sektionstypen begrenzt; kein freies HTML oder individuelles Seitenlayout.
 
 ## Nicht-Ziele
 
