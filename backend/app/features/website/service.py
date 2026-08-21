@@ -87,6 +87,9 @@ def get_public_site(hostname: str) -> dict:
     mandant_id = _resolve_mandant(hostname)
     row = _get_or_create_settings(mandant_id)
     leistungen = repo.list_active_leistungen(mandant_id)
+    from app.features.website import builder_service as builder_service
+
+    sections = builder_service.public_sections(mandant_id)
     return {
         "firmenname": row["firmenname"] or "",
         "logo_url": _logo_url(row),
@@ -97,6 +100,7 @@ def get_public_site(hostname: str) -> dict:
         "oeffnungszeiten": row["oeffnungszeiten"],
         "ueber_uns": row["ueber_uns"],
         "leistungen": leistungen,
+        "sections": sections,
     }
 
 
