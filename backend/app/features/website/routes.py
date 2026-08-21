@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 
 from app.config import settings
 from app.deps import CurrentUser, require_role
@@ -42,6 +42,12 @@ def get_site(request: Request):
 @public_router.get("/leistungen/{slug}", response_model=schemas.PublicLeistungDetail)
 def get_leistung(slug: str, request: Request):
     return website_service.get_public_leistung(_hostname(request), slug)
+
+
+@public_router.get("/sections/{section_id}/bild")
+def get_section_bild(section_id: str, request: Request):
+    data, content_type = website_service.get_public_section_bild(_hostname(request), section_id)
+    return Response(data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @public_router.post("/anfragen/uploads", response_model=schemas.AnfrageUploadRead, status_code=201)

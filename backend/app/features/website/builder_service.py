@@ -249,7 +249,7 @@ def public_sections(mandant_id: str) -> list[dict]:
                 inhalt = {
                     **inhalt,
                     "bild": {
-                        "url": storage_mod.storage.presigned_get_url(bild["objektpfad"]),
+                        "url": f"/public/sections/{s['id']}/bild",
                         "alt_text": bild["alt_text"] or "",
                     },
                 }

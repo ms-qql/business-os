@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+import mimetypes
 
 from app.config import settings
 from app.errors import ConflictError, NotFoundError, TooManyRequestsError, ValidationError
@@ -110,6 +111,21 @@ def get_public_leistung(hostname: str, slug: str) -> dict:
     if not leistung:
         raise NotFoundError("Leistung nicht gefunden.")
     return leistung
+
+
+def get_public_section_bild(hostname: str, section_id: str) -> tuple[bytes, str]:
+    """Liefert ein sichtbares Bild über dieselbe HTTPS-Origin wie die Website."""
+    mandant_id = _resolve_mandant(hostname)
+    from app.features.website import builder_repository as builder_repo
+
+    section = builder_repo.get_section(mandant_id, section_id)
+    if not section or not section["visible"] or section["typ"] not in {"hero", "text_mit_bild"}:
+        raise NotFoundError("Bild nicht gefunden.")
+    bild = builder_repo.get_bild(mandant_id, section_id)
+    if not bild:
+        raise NotFoundError("Bild nicht gefunden.")
+    content_type = mimetypes.guess_type(bild["objektpfad"])[0] or "application/octet-stream"
+    return storage_mod.storage.get_object(bild["objektpfad"]), content_type
 
 
 def upload_anfrage_bild(hostname: str, ip: str | None, uebermittlungskennung: str,

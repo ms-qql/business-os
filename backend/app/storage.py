@@ -16,6 +16,9 @@ class BaseStorage:
     def presigned_get_url(self, object_key: str, expires_seconds: int = 3600) -> str:
         raise NotImplementedError
 
+    def get_object(self, object_key: str) -> bytes:
+        raise NotImplementedError
+
     def delete_object(self, object_key: str) -> None:
         raise NotImplementedError
 
@@ -57,6 +60,14 @@ class MinioStorage(BaseStorage):
             expires=datetime.timedelta(seconds=expires_seconds),
         )
 
+    def get_object(self, object_key: str) -> bytes:
+        response = self._get_client().get_object(settings.minio_bucket, object_key)
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
+
     def delete_object(self, object_key: str) -> None:
         client = self._get_client()
         client.remove_object(settings.minio_bucket, object_key)
@@ -73,6 +84,9 @@ class InMemoryStorage(BaseStorage):
 
     def presigned_get_url(self, object_key: str, expires_seconds: int = 3600) -> str:
         return f"memory://{object_key}"
+
+    def get_object(self, object_key: str) -> bytes:
+        return self._objects[object_key]
 
     def delete_object(self, object_key: str) -> None:
         self._objects.pop(object_key, None)

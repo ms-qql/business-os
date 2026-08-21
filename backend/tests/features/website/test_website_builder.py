@@ -236,6 +236,28 @@ def test_upload_and_delete_section_bild(client, mandant):
     assert hero2["bild"] is None
 
 
+def test_public_section_bild_uses_same_origin_url(client, mandant):
+    make_domain(mandant, "shk-mueller.de")
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    uploaded = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={init['version']}",
+        headers=_auth(tok),
+        files={"datei": ("hero.png", _tiny_png(), "image/png")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+
+    site = client.get("/public/site", headers={"Host": "shk-mueller.de"})
+    public_hero = next(s for s in site.json()["sections"] if s["typ"] == "hero")
+    assert public_hero["bild"]["url"] == f"/public/sections/{hero['id']}/bild"
+
+    image = client.get(public_hero["bild"]["url"], headers={"Host": "shk-mueller.de"})
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/png"
+    assert image.content == _tiny_png()
+
+
 def test_upload_bild_rejects_non_image(client, mandant):
     tok = _login(client, mandant, "inh@shk.de")
     init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()

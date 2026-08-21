@@ -68,7 +68,10 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
 
   async function onBild(e: React.ChangeEvent<HTMLInputElement>) {
     const datei = e.target.files?.[0];
-    if (!datei) return;
+    if (datei) await ladeBildHoch(datei, e);
+  }
+
+  async function ladeBildHoch(datei: File, e?: React.ChangeEvent<HTMLInputElement>) {
     const res = await handleBild(() => uploadSectionBild(section.id, datei, alt, version), e);
     if (res) {
       const aktualisiert = res.sections.find((s) => s.id === section.id);
@@ -157,7 +160,15 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
                 className="h-9"
               />
             </div>
-            <div>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const datei = e.dataTransfer.files[0];
+                if (datei) void ladeBildHoch(datei);
+              }}
+              className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-2"
+            >
               <input
                 id={`bild-${section.id}`}
                 type="file"
@@ -166,6 +177,7 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
                 disabled={bildSpeichern}
                 className="block w-full text-sm text-[var(--color-muted-foreground)] file:mr-3 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--color-surface)] file:px-3 file:py-2 file:text-sm file:font-medium"
               />
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">Oder Bild hierher ziehen.</p>
             </div>
           </div>
           {bildFehler && <Alert variant="danger" className="mt-2">{bildFehler}</Alert>}
