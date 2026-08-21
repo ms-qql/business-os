@@ -1,4 +1,5 @@
 import { API_BASE } from "@/lib/session";
+import type { PublicSection } from "@/lib/website-builder-types";
 
 /** Fehler eines öffentlichen (nicht angemeldeten) API-Aufrufs. */
 export class PublicApiError extends Error {
@@ -56,6 +57,8 @@ export interface PublicSite {
   oeffnungszeiten: string | null;
   ueber_uns: string | null;
   leistungen: PublicLeistung[];
+  /** Frei konfigurierte Landingpage-Sektionen (PROJ-12). Leer bei alter/statischer Seite. */
+  sections: PublicSection[];
 }
 
 /** Website-Einstellungen + aktive Leistungen für die aufgelöste Betriebsdomain. */

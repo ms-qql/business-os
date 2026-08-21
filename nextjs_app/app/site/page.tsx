@@ -5,12 +5,23 @@ import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useSite, useSiteBase } from "@/app/site/site-context";
+import { SectionRenderer } from "@/components/website-builder/section-renderer";
 
 export default function StartseitePage() {
   const { site } = useSite();
   const base = useSiteBase();
   if (!site) return null;
 
+  // PROJ-12: frei konfigurierte Sektionen vorhanden -> Renderer nutzen.
+  if (site.sections && site.sections.length > 0) {
+    return (
+      <div>
+        <SectionRenderer sections={site.sections} site={site} />
+      </div>
+    );
+  }
+
+  // Fallback: statische SHK-Startseite (alter Zustand ohne Baukasten).
   return (
     <div>
       <section className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]">
