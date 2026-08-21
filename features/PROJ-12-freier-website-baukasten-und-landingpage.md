@@ -1,6 +1,6 @@
 # PROJ-12: Freier Website-Baukasten und hochwertige Landingpage
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
