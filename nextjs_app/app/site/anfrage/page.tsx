@@ -13,6 +13,7 @@ import { Label, Alert } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PublicApiError, submitAnfrage, uploadAnfrageBild } from "@/lib/api/public";
 import { useSiteBase } from "@/app/site/site-context";
+import { liesKurzformular } from "@/components/website-builder/section-renderer";
 
 const MAX_BILDER = 5;
 const MAX_DATEIGROESSE = 8 * 1024 * 1024; // 8 MB
@@ -66,6 +67,13 @@ export default function AnfragePage() {
   const [sendenFehler, setSendenFehler] = React.useState<string | null>(null);
   const [wirdGesendet, setWirdGesendet] = React.useState(false);
 
+  // Vorgabe aus dem öffentlichen Kurzformular (Hero) einmalig übernehmen —
+  // wird nur über sessionStorage und ohne Kontaktdaten in der URL übergeben.
+  const vorgabe = React.useRef(liesKurzformular()).current;
+  const kontaktwegDefault: "Telefon" | "E-Mail" = vorgabe?.email
+    ? "E-Mail"
+    : "Telefon";
+
   const {
     register,
     handleSubmit,
@@ -73,7 +81,13 @@ export default function AnfragePage() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { kontaktweg: "Telefon", dringlichkeit: "Normal" },
+    defaultValues: {
+      name: vorgabe?.name ?? "",
+      kontaktweg: kontaktwegDefault,
+      telefon: vorgabe?.telefon ?? "",
+      email: vorgabe?.email ?? "",
+      dringlichkeit: "Normal",
+    },
   });
 
   const kontaktweg = watch("kontaktweg");
