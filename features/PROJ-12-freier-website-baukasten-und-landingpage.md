@@ -1,6 +1,6 @@
 # PROJ-12: Freier Website-Baukasten und hochwertige Landingpage
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-21
 **Last Updated:** 2026-08-21
 
@@ -300,4 +300,9 @@ Der Browser-Tool-Daemon (agent-browser/Chromium headless) in dieser Umgebung hin
 Hinweis: `backend/sql/009_rechnungen.sql` (PROJ-8, nicht PROJ-12) hat einen vorbestehenden zirkulären FK-Bug (`rechnung.fassung_id → rechnung_fassung`, aber `rechnung_fassung` wird erst danach angelegt) — fällt nur beim frischen `apply_migrations.py`-Lauf auf leerer DB auf (pytest nutzt SQLite-Fixtures, nicht betroffen). Nicht PROJ-12-Scope, hier nur zur Kenntnisnahme dokumentiert; separates Ticket empfohlen.
 
 ## Deployment
-_To be added by /abc-deploy_
+**Production URL:** https://bizos.app.msce.info
+**Deployed:** 2026-08-22 · **Version:** 0.1.9
+
+- Frontend rebuilt from `main` after the section-switch editor fix.
+- Production smoke test: `/website-builder` and `/api/health` return 200.
+- Browser smoke test pending: hard-refresh, then switch through all section types.
