@@ -40,6 +40,14 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
   const [bildSpeichern, setBildSpeichern] = React.useState(false);
   const bildUrl = section.bild?.url ?? null;
 
+  // Beim Wechsel in der Sektionsliste darf kein Inhalt des zuvor gewählten
+  // Typs im Editor bleiben (z. B. Hero statt Kennzahlen).
+  React.useEffect(() => {
+    setInhalt(section.inhalt);
+    setVisible(section.visible);
+    setError(null);
+  }, [section.id, section.inhalt, section.visible]);
+
   // Alt-Text aus dem Serverzustand übernehmen, sobald sich das Bild ändert.
   React.useEffect(() => {
     setAlt(section.bild?.alt_text ?? "");

@@ -306,6 +306,7 @@ export default function WebsiteBuilderPage() {
             <CardContent>
               {aktive ? (
                 <SectionEditor
+                  key={aktive.id}
                   section={aktive}
                   version={state.version}
                   onSaveInhalt={(inhalt, visible) => onSaveInhalt(aktive, inhalt, visible)}
