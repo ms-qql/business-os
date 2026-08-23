@@ -318,8 +318,11 @@ Hinweis: `backend/sql/009_rechnungen.sql` (PROJ-8, nicht PROJ-12) hat einen vorb
 
 ## Deployment
 **Production URL:** https://bizos.app.msce.info
-**Deployed:** 2026-08-22 · **Version:** 0.1.9
+**Deployed:** 2026-08-23 · **Version:** 0.1.10
 
-- Frontend rebuilt from `main` after the section-switch editor fix.
-- Production smoke test: `/website-builder` and `/api/health` return 200.
-- Browser smoke test pending: hard-refresh, then switch through all section types.
+- Backend rebuilt from `main` mit dem Bild-URL-Fix (`_public_bild()` — siehe Nachtest oben).
+- Production smoke test: `/website-builder` und `/api/health` prüfen.
+- Browser smoke test nach Deploy: Bild in Sektion hochladen, Anzeige im Editor UND auf öffentlicher Landingpage prüfen (hard-refresh wegen Service-Worker-Cache).
+
+### Vorherige Deployments
+- 2026-08-22 · v0.1.9 — Frontend rebuilt from `main` after the section-switch editor fix. Production smoke test: `/website-builder` and `/api/health` return 200.
