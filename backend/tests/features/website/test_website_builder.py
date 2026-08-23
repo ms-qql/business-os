@@ -224,7 +224,7 @@ def test_upload_and_delete_section_bild(client, mandant):
     hero_after = next(s for s in body["sections"] if s["id"] == hero["id"])
     assert hero_after["bild"]
     assert hero_after["bild"]["alt_text"] == "Hintergrund"
-    assert hero_after["bild"]["url"].startswith("memory://")
+    assert hero_after["bild"]["url"] == f"/public/sections/{hero['id']}/bild"
 
     # Bild wieder entfernen -> Textvariante bleibt, Bildverweis weg.
     r2 = client.delete(

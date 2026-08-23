@@ -53,7 +53,7 @@ def _public_bild(mandant_id: str, section: dict) -> BildRead | None:
     if not bild:
         return None
     return BildRead(
-        url=storage_mod.storage.presigned_get_url(bild["objektpfad"]),
+        url=f"/public/sections/{section['id']}/bild",
         alt_text=bild["alt_text"] or "",
     )
 

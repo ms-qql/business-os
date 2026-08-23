@@ -299,6 +299,23 @@ Der Browser-Tool-Daemon (agent-browser/Chromium headless) in dieser Umgebung hin
 
 Hinweis: `backend/sql/009_rechnungen.sql` (PROJ-8, nicht PROJ-12) hat einen vorbestehenden zirkulären FK-Bug (`rechnung.fassung_id → rechnung_fassung`, aber `rechnung_fassung` wird erst danach angelegt) — fällt nur beim frischen `apply_migrations.py`-Lauf auf leerer DB auf (pytest nutzt SQLite-Fixtures, nicht betroffen). Nicht PROJ-12-Scope, hier nur zur Kenntnisnahme dokumentiert; separates Ticket empfohlen.
 
+### Nachtest Bugfix 2026-08-23 — Bild-URL im Editor (Produktion gemeldet)
+
+**Bug:** Nach erfolgreichem Bild-Upload im Sektion-Editor (`POST /website-builder/sections/{id}/bild` → 200 OK) lieferte die Antwort eine rohe MinIO-Presigned-URL (Port 9000, `https://…:9000/...`) statt der proxied App-HTTPS-URL. Browser: `net::ERR_SSL_PROTOCOL_ERROR`, Bild blieb im Editor unsichtbar. Ursache: `_public_bild()` in `backend/app/features/website/builder_service.py:56` (Rückgabepfad für `get_builder_state` → Upload/Patch/Delete-Response) wurde vom Fix in 9645d3d ("Serve section images through app HTTPS") **nicht** mit erfasst — nur `public_sections()` (Zeile 252, öffentliche Landingpage `/public/site`) war bereits korrekt.
+
+**Fix:** `_public_bild()` liefert jetzt ebenfalls `f"/public/sections/{section['id']}/bild"` statt `storage_mod.storage.presigned_get_url(...)` — identisches Muster wie der bereits gefixte Pfad.
+
+**Test:**
+- Bestehender Test `test_upload_and_delete_section_bild` (`backend/tests/features/website/test_website_builder.py:212`) asserte bisher explizit die kaputte URL (`.startswith("memory://")`, die Storage-Test-Doubles-URL) — der Bug war damit im Test selbst als "erwartet" festgeschrieben und wurde deshalb nicht gefangen. Assertion korrigiert auf `== f"/public/sections/{hero['id']}/bild"`.
+- `test_public_section_bild_uses_same_origin_url` (bereits vorhanden, Zeile 239) deckt den öffentlichen Pfad weiterhin ab — unverändert grün, keine Regression durch den Fix.
+- Volle Backend-Suite (`conda run -n Dashboard --no-capture-output python -m pytest backend/`): **alle Tests grün**, keine Regression.
+
+**Nicht getestet (Scope-Lücke, vorbestehend, nicht durch diesen Fix verursacht):** Format-Coverage nur PNG + Non-Image-Rejection; kein expliziter Test für JPEG/GIF/WEBP-Upload trotz `_sniff_image_ext`-Unterstützung aller vier Formate. Browser-Live-Test (Drag&Drop, visuelle Anzeige) nicht durchgeführt — kein Browser-Tool in dieser Session verfügbar; Backend-Contract-Test + Code-Review als Ersatz. Empfehlung: nach Deploy einmal manuell im Browser bestätigen (Bild hochladen, Editor-Vorschau + öffentliche Landingpage prüfen).
+
+**Bug-Schwere:** High (Kernfunktion Bild-Upload im Editor de facto unbenutzbar) — behoben, keine offenen Critical/High-Bugs.
+
+**Production-Ready:** JA, für diesen Fix. Vor Redeploy empfohlen: WebP-Konvertierung/Optimierung als separates Feature aufnehmen (aktuell kein Resize/Kompression — vom Nutzer als "später" eingestuft, nicht Teil dieses Fixes).
+
 ## Deployment
 **Production URL:** https://bizos.app.msce.info
 **Deployed:** 2026-08-22 · **Version:** 0.1.9
