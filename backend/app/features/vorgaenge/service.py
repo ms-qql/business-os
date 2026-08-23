@@ -59,7 +59,16 @@ def get_vorgang_detail(user, vorgang_id: str) -> dict:
     _guard_monteur_read(user, vorgang)
     historie = repo.list_historie(user.mandant_id, vorgang_id)
     dokumente = repo.list_dokumente(user.mandant_id, vorgang_id)
-    return {**vorgang, "historie": historie, "dokumente": dokumente}
+    result = {**vorgang, "historie": historie, "dokumente": dokumente}
+    # PROJ-13: verknüpfte Formular-Einsendung (sofern diese Anfrage daraus entstand).
+    from app.features.formulare import service as formular_service
+    anfrage_rows = repo.get_anfrage_fuer_vorgang(user.mandant_id, vorgang_id)
+    if anfrage_rows and anfrage_rows[0].get("formular_einsendung_id"):
+        einsendung = formular_service.get_einsendung_fuer_anfrage(
+            user.mandant_id, anfrage_rows[0]["id"])
+        if einsendung:
+            result["formular_einsendung"] = einsendung
+    return result
 
 
 # --- Schreiben (Büro/Inhaber) -------------------------------------------

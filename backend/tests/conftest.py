@@ -74,7 +74,7 @@ CREATE TABLE anfrage (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, kontaktweg TEXT NOT NULL,
     telefon TEXT, email TEXT, adresse TEXT NOT NULL, anliegen TEXT NOT NULL,
     dringlichkeit TEXT NOT NULL, zeitfenster TEXT, quelle TEXT NOT NULL DEFAULT 'Website',
-    uebermittlungskennung TEXT NOT NULL, vorgang_id TEXT, created_at TEXT NOT NULL DEFAULT 'now',
+    uebermittlungskennung TEXT NOT NULL, vorgang_id TEXT, formular_einsendung_id TEXT, created_at TEXT NOT NULL DEFAULT 'now',
     UNIQUE (mandant_id, uebermittlungskennung)
 );
 CREATE TABLE anfragebild (
@@ -86,7 +86,7 @@ CREATE TABLE website_anfrage_versuche (
 );
 CREATE TABLE kunde (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT, telefon TEXT,
-    notiz TEXT, created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+    notiz TEXT, status TEXT NOT NULL DEFAULT 'aktiv', created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE objekt (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, kunde_id TEXT NOT NULL, adresse TEXT NOT NULL,
@@ -226,7 +226,63 @@ CREATE TABLE website_section_bild (
     objektpfad TEXT NOT NULL, alt_text TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT 'now'
 );
+-- PROJ-13: Formular-Baukasten (Spiegel von sql/011_formular_baukasten.sql).
+CREATE TABLE formular (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT 'Neues Formular',
+    komplexitaet TEXT NOT NULL DEFAULT 'einfach', draft_revision INTEGER NOT NULL DEFAULT 1,
+    veroeffentlicht BOOLEAN NOT NULL DEFAULT 0, aktuelle_version_id TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_schritt (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL,
+    position INTEGER NOT NULL, titel TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (formular_id, position)
+);
+CREATE TABLE formular_feld (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL,
+    schritt_id TEXT NOT NULL, position INTEGER NOT NULL, typ TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '', hilfetext TEXT, pflichtfeld BOOLEAN NOT NULL DEFAULT 0,
+    optional_in_einfach BOOLEAN NOT NULL DEFAULT 0, uebernahme TEXT,
+    min_val NUMERIC, max_val NUMERIC, ganzzahl BOOLEAN, reg_exp TEXT, maxlaenge INTEGER,
+    datum_min TEXT, datum_max TEXT, max_anzahl INTEGER,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (schritt_id, position)
+);
+CREATE TABLE formular_option (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL,
+    feld_id TEXT NOT NULL, position INTEGER NOT NULL, label TEXT NOT NULL, wert TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT 'now', UNIQUE (feld_id, position), UNIQUE (feld_id, wert)
+);
+CREATE TABLE formular_version (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL,
+    nummer INTEGER NOT NULL, public_id TEXT NOT NULL, inhalt TEXT NOT NULL,
+    veroeffentlicht_am TEXT NOT NULL DEFAULT 'now', veroeffentlicht_von TEXT,
+    UNIQUE (formular_id, nummer), UNIQUE (public_id)
+);
+CREATE TABLE formular_einsendung (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL,
+    version_id TEXT NOT NULL, uebermittlungskennung TEXT NOT NULL, werte TEXT NOT NULL,
+    consent_nachweis TEXT, spam_status TEXT NOT NULL DEFAULT 'normal',
+    anfrage_id TEXT, vorgang_id TEXT, erstellt_am TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (mandant_id, uebermittlungskennung)
+);
+CREATE TABLE formular_upload (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL,
+    feld_id TEXT, uebermittlungskennung TEXT NOT NULL, einsendung_id TEXT,
+    objektpfad TEXT NOT NULL, originalname TEXT NOT NULL, mime_typ TEXT NOT NULL,
+    groesse_bytes INTEGER NOT NULL, erstellt_am TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_einsendung_versuche (
+    id TEXT PRIMARY KEY, ip TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_upload_versuche (
+    id TEXT PRIMARY KEY, ip TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
 """
+
+import uuid
+from datetime import datetime, timezone
 
 
 @pytest.fixture(autouse=True)
@@ -246,7 +302,6 @@ def object_storage():
 
 
 def _iso():
-    from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
 
 

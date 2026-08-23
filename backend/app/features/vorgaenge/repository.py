@@ -194,6 +194,14 @@ def get_anfrage(mandant_id: str, anfrage_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def get_anfrage_fuer_vorgang(mandant_id: str, vorgang_id: str) -> list[dict]:
+    return db.engine.query(
+        "SELECT id, formular_einsendung_id FROM anfrage "
+        "WHERE mandant_id = %s AND vorgang_id = %s",
+        (mandant_id, vorgang_id), mandant_id=mandant_id,
+    )
+
+
 def list_anfragebilder(mandant_id: str, anfrage_id: str) -> list[dict]:
     return db.engine.query(
         "SELECT id, objektpfad, dateiname FROM anfragebild "
