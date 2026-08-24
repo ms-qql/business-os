@@ -34,6 +34,9 @@ services:
       WEBSITE_IMAGES_MINIO_SECURE: ${WEBSITE_IMAGES_MINIO_SECURE:-false}
     expose:
       - "8000"
+    networks:
+      - default
+      - dokploy-network
 
   bizos-frontend:
     build:
@@ -52,3 +55,7 @@ services:
 
 volumes:
   bizos_db_data:
+
+networks:
+  dokploy-network:
+    external: true
