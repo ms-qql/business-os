@@ -1,6 +1,6 @@
 # PROJ-14: Branchenpaket-Konfiguration
 
-## Status: In Review (QA: READY — Bugs behoben, Re-Verifikation grün)
+## Status: Deployed
 **Created:** 2026-08-24
 **Last Updated:** 2026-08-24
 
@@ -357,4 +357,6 @@ Alle übrigen ACs/Edge-Cases unverändert PASS aus Erstlauf (siehe oben); AC3 (K
 **READY.** Keine Critical/High-Bugs mehr offen. Empfehlung: weiter zum Pre-Deploy-Gate (Coordinator-Entscheidung).
 
 ## Deployment
-_To be added by /abc-deploy_
+**Production URL:** https://bizos.app.msce.info
+**Deployed:** 2026-08-24 · **Version:** v0.1.16
+**Smoke-Test:** Erfolgreich bestätigt: Branchenpaket wählen und übernehmen; Paketinfo für Inhaber und Büro sichtbar.

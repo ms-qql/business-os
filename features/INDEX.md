@@ -9,7 +9,7 @@
 | ID | Feature | Priorität | Status | Abhängigkeiten | ImmoCRM-Reuse |
 |---|---|---|---|---|---|
 | PROJ-1 | Mandanten, Anmeldung und Rollen | P0 | Approved | — | Auth, Passwort-, JWT-, TOTP- und Audit-Muster; RLS neu |
-| PROJ-14 | Branchenpaket-Konfiguration (einmalige Onboarding-Wahl; Formulare, Preislisten, Textbausteine, Objekttypen je Branche) | P0 | In Progress | PROJ-1, PROJ-13, PROJ-7, PROJ-22 | Versionierte Produktvorlagen werden beim Onboarding atomar in den Mandanten kopiert; Voraussetzung für Doppel-Pilot SHK/Entrümpelung |
+| PROJ-14 | Branchenpaket-Konfiguration (einmalige Onboarding-Wahl; Formulare, Preislisten, Textbausteine, Objekttypen je Branche) | P0 | Deployed | PROJ-1, PROJ-13, PROJ-7, PROJ-22 | Deployed 2026-08-24, v0.1.16 · bizos.app.msce.info; atomare Paketübernahme für SHK/Entrümpelung |
 | PROJ-2 | Geführte Website, Branding | P0 | Deployed | PROJ-1 | Branding-Settings und Logo-Speicher; Website neu |
 | PROJ-13 | Formular-Baukasten (Feldtypen-Katalog, Editor, Mehrstufigkeit, Einbindung) | P0 | Deployed | PROJ-2 | Deployed 2026-08-24, v0.1.15 · bizos.app.msce.info; QA 15/15, keine offenen Bugs |
 | PROJ-3 | Kunden, Objekte, Projekte und Dokumente | P0 | Deployed | PROJ-1 | Deployed 2026-08-17, v0.1.2 · biz.app.msce.info; QA bestanden 6/6 AC, Security-Audit ohne Befund, BUG-1 gefixt+retestet |
