@@ -143,9 +143,10 @@ export default function WebsiteBuilderPage() {
   }
 
   async function onSaveInhalt(section: WebsiteSection, inhalt: SektionInhaltUnion, visible: boolean) {
-    if (!state) return;
+    if (!state) throw new Error("Landingpage nicht geladen.");
     const res = await updateSection(section.id, { inhalt, visible, version: state.version });
     await reloadAfter(res);
+    return res;
   }
 
   if (loading) {

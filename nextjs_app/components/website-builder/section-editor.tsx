@@ -22,7 +22,7 @@ import {
 interface Props {
   section: WebsiteSection;
   version: number;
-  onSaveInhalt: (inhalt: SektionInhaltUnion, visible: boolean) => Promise<void>;
+  onSaveInhalt: (inhalt: SektionInhaltUnion, visible: boolean) => Promise<LandingpageState>;
   /** Wird nach einem erfolgreichen Bild-Upload/-Löschen mit dem neuen Zustand aufgerufen. */
   onStateUpdate: (state: LandingpageState) => void;
 }
@@ -80,7 +80,10 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
   }
 
   async function ladeBildHoch(datei: File, e?: React.ChangeEvent<HTMLInputElement>) {
-    const res = await handleBild(() => uploadSectionBild(section.id, datei, alt, version), e);
+    const res = await handleBild(async () => {
+      const gespeicherterInhalt = inhaltDirty ? await onSaveInhalt(inhalt, visible) : null;
+      return uploadSectionBild(section.id, datei, alt, gespeicherterInhalt?.version ?? version);
+    }, e);
     if (res) {
       const aktualisiert = res.sections.find((s) => s.id === section.id);
       setAlt(aktualisiert?.bild?.alt_text ?? alt);

@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SectionEditor } from "@/components/website-builder/section-editor";
+import { uploadSectionBild } from "@/lib/api/website-builder";
 import type { SektionInhaltUnion, WebsiteSection } from "@/lib/website-builder-types";
 
 jest.mock("@/lib/api/website-builder", () => ({
@@ -51,4 +52,29 @@ it("zeigt den Anzeigenamen eines Sektionsbilds", () => {
     />,
   );
   expect(screen.getByText("Hero – Dach")).toBeInTheDocument();
+});
+
+it("speichert ungesicherten Inhalt vor dem Bild-Upload", async () => {
+  const original = { typ: "hero" as const, titel: "Alt", text: "Alter Text" };
+  const changed = { ...original, titel: "Neu", text: "Neuer Text" };
+  const saved = { landingpage_id: "lp", version: 2, sections: [section(changed)] };
+  const uploaded = {
+    landingpage_id: "lp",
+    version: 3,
+    sections: [{ ...section(changed), bild: { url: "/bild", alt_text: "", anzeigename: null } }],
+  };
+  const onSaveInhalt = jest.fn().mockResolvedValue(saved);
+  (uploadSectionBild as jest.Mock).mockResolvedValue(uploaded);
+  const { container } = render(
+    <SectionEditor section={section(original)} version={1} onSaveInhalt={onSaveInhalt} onStateUpdate={jest.fn()} />,
+  );
+
+  fireEvent.change(screen.getByDisplayValue("Alt"), { target: { value: "Neu" } });
+  fireEvent.change(screen.getByDisplayValue("Alter Text"), { target: { value: "Neuer Text" } });
+  fireEvent.change(container.querySelector('input[type="file"]')!, {
+    target: { files: [new File(["bild"], "bild.png", { type: "image/png" })] },
+  });
+
+  await waitFor(() => expect(onSaveInhalt).toHaveBeenCalledWith(changed, true));
+  expect(uploadSectionBild).toHaveBeenCalledWith("hero", expect.any(File), "", 2);
 });
