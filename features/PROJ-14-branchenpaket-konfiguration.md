@@ -1,6 +1,6 @@
 # PROJ-14: Branchenpaket-Konfiguration
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-08-24
 **Last Updated:** 2026-08-24
 
