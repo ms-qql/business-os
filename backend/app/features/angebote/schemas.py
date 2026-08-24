@@ -23,7 +23,8 @@ class PositionCreate(BaseModel):
     bezeichnung: str = Field(min_length=1)
     menge: float = Field(gt=0)
     einheit: str = Field(min_length=1)
-    einzelpreis: float = Field(ge=0)
+    # Negative Einzelpreise sind bei manuellen Positionen erlaubt (PROJ-22).
+    einzelpreis: float
     steuersatz: float = Field(ge=0, le=100)
     rabatt_typ: RabattTyp = "prozent"
     rabatt_wert: float = Field(default=0, ge=0)
@@ -34,7 +35,8 @@ class PositionUpdate(BaseModel):
     bezeichnung: Optional[str] = Field(default=None, min_length=1)
     menge: Optional[float] = Field(default=None, gt=0)
     einheit: Optional[str] = Field(default=None, min_length=1)
-    einzelpreis: Optional[float] = Field(default=None, ge=0)
+    # Negative Einzelpreise sind bei manuellen Positionen erlaubt (PROJ-22).
+    einzelpreis: Optional[float] = Field(default=None)
     steuersatz: Optional[float] = Field(default=None, ge=0, le=100)
     rabatt_typ: Optional[RabattTyp] = None
     rabatt_wert: Optional[float] = Field(default=None, ge=0)
@@ -52,6 +54,26 @@ class PositionRead(BaseModel):
     rabatt_wert: float
     sortierung: int
     positions_summe: float
+    # PROJ-22: Kalkulations-Snapshot + Override-Nachweis (nur intern sichtbar).
+    kalkulierter_einzelpreis: Optional[float] = None
+    preis_override_begruendung: Optional[str] = None
+    preis_angepasst: bool = False
+    # Herkunftsnachweis (PROJ-22): true, wenn die Position aus einem Gewerk
+    # übernommen wurde (Snapshot). Steuert „Gewerk“-Badge + Override-Button.
+    aus_gewerk: bool = False
+
+
+class PreisOverride(BaseModel):
+    """Interner Preis-Override einer aus einem Gewerk übernommenen Position."""
+    einzelpreis: float
+    begruendung: Optional[str] = None
+
+
+class PositionAusGewerk(BaseModel):
+    """Snapshot-Erzeugung: übernimmt ein Gewerk als Angebotsposition."""
+    gewerk_id: str
+    menge: float = Field(default=1.0, gt=0)
+    sortierung: int = 0
 
 
 class AngebotListItem(BaseModel):

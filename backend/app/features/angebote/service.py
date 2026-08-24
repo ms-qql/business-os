@@ -82,7 +82,14 @@ def _recalc_and_store(mandant_id: str, angebot_id: str) -> None:
 
 def _position_read(p: dict) -> dict:
     netto, _ = _position_netto_steuer(p)
-    return {**p, "positions_summe": netto}
+    kalkuliert = p.get("kalkulierter_einzelpreis")
+    angepasst = bool(kalkuliert is not None
+                     and abs(float(p["einzelpreis"]) - float(kalkuliert)) >= 0.005)
+    return {**p, "positions_summe": netto,
+            "kalkulierter_einzelpreis": (float(kalkuliert) if kalkuliert is not None else None),
+            "preis_override_begruendung": p.get("preis_override_begruendung"),
+            "preis_angepasst": angepasst,
+            "aus_gewerk": kalkuliert is not None}
 
 
 def _detail(mandant_id: str, angebot_id: str) -> dict:
