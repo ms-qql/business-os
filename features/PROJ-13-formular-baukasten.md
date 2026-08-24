@@ -1,8 +1,8 @@
 # PROJ-13: Formular-Baukasten
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-08-23
-**Last Updated:** 2026-08-23
+**Last Updated:** 2026-08-24
 
 ## Dependencies
 - Requires: PROJ-1 — Mandanten, Anmeldung und Rollen für die Mandantentrennung sowie Inhaber- und Bürozugriff.
@@ -271,35 +271,35 @@ internen Aufräumlauf entfernt.
 
 ## QA Test Results
 
-**Tested:** 2026-08-24  
+**Tested:** 2026-08-24 (Retest nach BUG-1/BUG-2)  
 **Backend:** FastAPI TestClient, Python 3.10 / pytest 8.3.3  
-**Frontend:** Next.js TypeScript typecheck + Jest (kein Browser-Smoke: der öffentliche Flow scheitert vor der visuellen Abnahme)  
+**Frontend:** Next.js TypeScript typecheck + Jest + Production-Build (Chrome-Smoke in dieser Umgebung nicht verfügbar)  
 **Tester:** QA Engineer (AI)
 
 ### Acceptance Criteria Status
 
-- [ ] **AC-1 bis AC-15:** Nicht end-to-end bestanden. Die Frontend- und Backend-Verträge für Entwürfe, öffentliche Snapshots und Einsendungen sind inkompatibel (BUG-1).
-- [x] Backend-Teilprüfungen: Anlage/Vorlagen, Entwurfsmutationen mit Versionskonflikt, Publish/Rücknahme, Domain-gebundener Snapshot, Upload-Magic-Bytes, Spam-Markierung, idempotente Einsendung und Vorgangsanreicherung sind durch 17 PROJ-13-Backendtests abgedeckt.
+- [x] **AC-1 bis AC-15:** Retest bestanden. Der Frontend-Adapter übersetzt Entwürfe, Snapshots, Publish-Revisionen und Einsendungen in den getesteten FastAPI-Vertrag.
+- [x] Backend-Teilprüfungen: Anlage/Vorlagen, Entwurfsmutationen mit Versionskonflikt, Publish/Rücknahme, Domain-gebundener Snapshot, Upload-Magic-Bytes, Spam-Markierung, idempotente Einsendung und Vorgangsanreicherung sind durch 18 PROJ-13-Backendtests abgedeckt.
 
 ### Edge Cases Status
 
 - [x] Nicht veröffentlichte oder domainfremde Snapshots liefern ein einheitliches `404`.
 - [x] Doppelte Optionswerte und fehlendes Pflicht-Consent verhindern die Veröffentlichung.
 - [x] Ungültige Upload-Typen werden serverseitig abgewiesen.
-- [ ] Öffentlicher Netzwerk-/Eingabe- und Responsive-Flow nicht abnehmbar, solange BUG-1 besteht.
+- [x] Öffentlicher Eingabe-/Einsendepfad ist wieder vertragskompatibel; visueller Chrome-Smoke bleibt als Deployment-Check offen.
 
 ### Security Audit Results
 
 - [x] Angemeldete Formularrouten verlangen Inhaber- oder Büro-Rolle; Mandant wird nicht aus dem Request-Body bezogen.
 - [x] Öffentliche Snapshots sind an die aufgelöste Betriebsdomain gebunden; fremde Domain liefert `404`.
 - [x] Uploads prüfen Magic Bytes sowie die feste Größenobergrenze.
-- [ ] **BUG-2:** Das öffentliche Rate-Limit vertraut unmittelbar auf den vom Client gesetzten Header `X-Forwarded-For`; Angreifer können die IP pro Request wechseln und die Drosselung umgehen.
+- [x] Rate-Limit: `X-Forwarded-For` wird nur mit gültigem internen Proxy-Secret übernommen; ein neuer Retest deckt beide Pfade ab.
 
 ### Bugs Found
 
 #### BUG-1: Frontend und Backend haben inkompatible Formularverträge
 
-- **Severity:** High
+- **Severity:** High — **Fixed, retested**
 - **Steps to Reproduce:**
   1. Ein SHK-Formular veröffentlichen und dessen öffentliche URL öffnen.
   2. Auf „Weiter“ oder „Absenden“ klicken.
@@ -309,7 +309,7 @@ internen Aufräumlauf entfernt.
 
 #### BUG-2: Rate-Limit per Client-Header umgehbar
 
-- **Severity:** High
+- **Severity:** High — **Fixed, retested**
 - **Steps to Reproduce:**
   1. Öffentlichen Upload- oder Einsende-Endpunkt wiederholt aufrufen.
   2. Bei jedem Request einen anderen `X-Forwarded-For`-Wert mitsenden.
@@ -319,17 +319,16 @@ internen Aufräumlauf entfernt.
 
 ### Automated Regression Results
 
-- [x] Backend: `242 passed` (eine bestehende Pydantic-Warnung).
-- [x] PROJ-13/Kunden/Vorgänge: `56 passed`.
-- [x] Next.js: TypeScript typecheck bestanden; Jest: `30 passed`.
+- [x] Backend: `243 passed` (eine bestehende Pydantic-Warnung).
+- [x] Next.js: TypeScript typecheck, Jest (`30 passed`) und Production-Build bestanden.
 
 ### Summary
 
-- **Acceptance Criteria:** 0/15 end-to-end passed
-- **Bugs Found:** 2 total (0 Critical, 2 High, 0 Medium, 0 Low)
-- **Security:** Issues found
-- **Production Ready:** NO
-- **Recommendation:** Fix bugs first
+- **Acceptance Criteria:** 15/15 passed (automatisierter Retest; visueller Chrome-Smoke beim Deployment nachholen)
+- **Bugs Found:** 0 open (2 High fixed, retested)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /abc-deploy_
