@@ -216,6 +216,7 @@ def test_publish_und_einbindung(client):
     assert r2.status_code == 200
     body = r2.json()
     assert public_id in body["direktlink"]
+    assert "shk-mueller.de" in body["direktlink"]
     assert public_id in body["iframe"]
     assert public_id in body["snippet"]
     assert "X-Forwarded-Host" not in body["iframe"]  # kein Mandanten-/API-Param

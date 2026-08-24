@@ -354,7 +354,10 @@ def get_einbindung(mandant_id: str, formular_id: str, hostname: str | None) -> d
     if not version:
         raise NotFoundError("Veröffentlichung nicht gefunden.")
     public_id = version["public_id"]
-    base = f"https://{hostname}" if hostname else ""
+    from app.features.website import repository as website_repo
+    domain = website_repo.get_domain(mandant_id)
+    public_hostname = domain["hostname"] if domain and domain["status"] == "aktiv" else hostname
+    base = f"https://{public_hostname}" if public_hostname else ""
     direktlink = f"{base}/site/formulare/{public_id}" if base else f"/site/formulare/{public_id}"
     iframe = (f'<iframe src="{direktlink}" width="100%" height="800" '
               f'frameborder="0" title="{formular["name"]}"></iframe>')
