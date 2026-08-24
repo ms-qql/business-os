@@ -188,8 +188,18 @@ def delete_dokument(mandant_id: str, vorgang_id: str, dokument_id: str) -> None:
 def get_anfrage(mandant_id: str, anfrage_id: str) -> dict | None:
     rows = db.engine.query(
         "SELECT id, name, kontaktweg, telefon, email, adresse, anliegen, dringlichkeit, "
-        "zeitfenster, quelle, vorgang_id FROM anfrage WHERE mandant_id = %s AND id = %s",
+        "zeitfenster, quelle, vorgang_id, formular_einsendung_id FROM anfrage WHERE mandant_id = %s AND id = %s",
         (mandant_id, anfrage_id), mandant_id=mandant_id,
+    )
+    return rows[0] if rows else None
+
+
+def get_anfrage_by_vorgang(mandant_id: str, vorgang_id: str) -> dict | None:
+    rows = db.engine.query(
+        "SELECT id, name, kontaktweg, telefon, email, adresse, anliegen, dringlichkeit, "
+        "zeitfenster, quelle, vorgang_id, formular_einsendung_id FROM anfrage "
+        "WHERE mandant_id = %s AND vorgang_id = %s",
+        (mandant_id, vorgang_id), mandant_id=mandant_id,
     )
     return rows[0] if rows else None
 

@@ -74,8 +74,14 @@ CREATE TABLE anfrage (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, kontaktweg TEXT NOT NULL,
     telefon TEXT, email TEXT, adresse TEXT NOT NULL, anliegen TEXT NOT NULL,
     dringlichkeit TEXT NOT NULL, zeitfenster TEXT, quelle TEXT NOT NULL DEFAULT 'Website',
-    uebermittlungskennung TEXT NOT NULL, vorgang_id TEXT, created_at TEXT NOT NULL DEFAULT 'now',
+    uebermittlungskennung TEXT NOT NULL, formular_einsendung_id TEXT, vorgang_id TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now',
     UNIQUE (mandant_id, uebermittlungskennung)
+);
+CREATE TABLE kunde (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT, telefon TEXT,
+    notiz TEXT, status TEXT NOT NULL DEFAULT 'aktiv' CHECK (status IN ('entwurf', 'aktiv')),
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE anfragebild (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, anfrage_id TEXT, uebermittlungskennung TEXT NOT NULL,
@@ -83,10 +89,6 @@ CREATE TABLE anfragebild (
 );
 CREATE TABLE website_anfrage_versuche (
     id TEXT PRIMARY KEY, ip TEXT, created_at TEXT NOT NULL DEFAULT 'now'
-);
-CREATE TABLE kunde (
-    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT, telefon TEXT,
-    notiz TEXT, created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE objekt (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, kunde_id TEXT NOT NULL, adresse TEXT NOT NULL,
@@ -108,6 +110,49 @@ CREATE TABLE vorgang_dokument (
     objektpfad TEXT NOT NULL, content_type TEXT NOT NULL, groesse_bytes INTEGER NOT NULL,
     hochgeladen_von TEXT, created_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE TABLE formular (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT 'Neues Formular',
+    komplexitaetsstufe TEXT NOT NULL DEFAULT 'einfach'
+        CHECK (komplexitaetsstufe IN ('einfach', 'erweitert')),
+    draft_revision INTEGER NOT NULL DEFAULT 1, published_version_id TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_schritt (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL, position INTEGER NOT NULL,
+    titel TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_feld (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, schritt_id TEXT NOT NULL, position INTEGER NOT NULL,
+    typ TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', hilfetext TEXT NOT NULL DEFAULT '',
+    pflichtfeld INTEGER NOT NULL DEFAULT 0, optional_in_einfach INTEGER NOT NULL DEFAULT 0,
+    konfiguration TEXT NOT NULL DEFAULT '{}', uebernahme TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_option (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, feld_id TEXT NOT NULL, position INTEGER NOT NULL,
+    label TEXT NOT NULL DEFAULT '', wert TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_version (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT NOT NULL, nummer INTEGER NOT NULL,
+    public_id TEXT NOT NULL, snapshot TEXT NOT NULL DEFAULT '{}', veroeffentlicht_am TEXT NOT NULL DEFAULT 'now',
+    veroeffentlicht_von TEXT, zurueckgezogen INTEGER NOT NULL DEFAULT 0, zurueckgezogen_am TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_einsendung (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, formular_id TEXT, version_id TEXT NOT NULL,
+    uebermittlungskennung TEXT NOT NULL, werte TEXT NOT NULL DEFAULT '{}',
+    consent_nachweis TEXT NOT NULL DEFAULT '{}', spam_status TEXT NOT NULL DEFAULT 'normal'
+        CHECK (spam_status IN ('normal', 'spam')),
+    anfrage_id TEXT, vorgang_id TEXT, eingegangen_am TEXT NOT NULL DEFAULT 'now',
+    created_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE formular_upload (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, uebermittlungskennung TEXT NOT NULL,
+    feld_id TEXT NOT NULL, objektpfad TEXT NOT NULL, originalname TEXT NOT NULL DEFAULT '',
+    mime_typ TEXT NOT NULL DEFAULT '', groesse_bytes INTEGER NOT NULL DEFAULT 0,
+    einsendung_id TEXT, created_at TEXT NOT NULL DEFAULT 'now'
+);
+
 CREATE TABLE email_konto (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, imap_host TEXT NOT NULL,
     imap_port INTEGER NOT NULL DEFAULT 993, imap_user TEXT NOT NULL, imap_passwort TEXT NOT NULL,

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import uuid
 
+import json
+
 from app.errors import ForbiddenError, NotFoundError, ValidationError
 from app.features.kunden import repository as kunden_repo
 from app.features.vorgaenge import repository as repo
@@ -59,7 +61,42 @@ def get_vorgang_detail(user, vorgang_id: str) -> dict:
     _guard_monteur_read(user, vorgang)
     historie = repo.list_historie(user.mandant_id, vorgang_id)
     dokumente = repo.list_dokumente(user.mandant_id, vorgang_id)
-    return {**vorgang, "historie": historie, "dokumente": dokumente}
+    detail = {**vorgang, "historie": historie, "dokumente": dokumente}
+
+    # Verknüpfte Formular-Einsendung (falls dieser Vorgang aus einem Formular
+    # übernommen wurde) — für Inhaber/Büro und zugewiesene Monteure sichtbar.
+    # Der Link liegt auf formular_einsendung.vorgang_id (vom Submit gesetzt).
+    from app.features.formulare import repository as form_repo
+    einsendung = form_repo.get_einsendung_by_vorgang(user.mandant_id, vorgang_id)
+    if einsendung:
+        uploads = form_repo.list_uploads_for_einsendung(
+            user.mandant_id, einsendung["id"])
+        formular_name = ""
+        if einsendung["formular_id"]:
+            f = form_repo.get_formular(user.mandant_id, einsendung["formular_id"])
+            formular_name = f["name"] if f else ""
+        werte = einsendung.get("werte") or {}
+        if isinstance(werte, str):
+            werte = json.loads(werte)
+        consent = einsendung.get("consent_nachweis") or {}
+        if isinstance(consent, str):
+            consent = json.loads(consent)
+        detail["formular_einsendung"] = {
+            "id": einsendung["id"],
+            "formular_id": einsendung["formular_id"],
+            "formular_name": formular_name,
+            "uebermittlungskennung": einsendung["uebermittlungskennung"],
+            "werte": werte,
+            "consent_nachweis": consent,
+            "spam_status": einsendung["spam_status"],
+            "eingegangen_am": einsendung["eingegangen_am"],
+            "uploads": [
+                {"id": u["id"], "originalname": u["originalname"],
+                 "mime_typ": u["mime_typ"], "groesse_bytes": u["groesse_bytes"]}
+                for u in uploads
+            ],
+        }
+    return detail
 
 
 # --- Schreiben (Büro/Inhaber) -------------------------------------------

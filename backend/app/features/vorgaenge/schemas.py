@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -79,6 +79,23 @@ class VorgangDetail(BaseModel):
     updated_at: datetime | str
     historie: list[HistorieRead]
     dokumente: list[DokumentRead]
+    formular_einsendung: Optional["VorgangFormularEinsendung"] = None
+
+
+class VorgangFormularEinsendung(BaseModel):
+    """Unveränderlicher Snapshot der Formularantwort, die diesen Vorgang
+    erzeugt hat (Werte, Consent-Nachweis, Formularanhänge). Sichtbar für
+    Inhaber/Büro und zugewiesene Monteure."""
+
+    id: str
+    formular_id: str
+    formular_name: str
+    uebermittlungskennung: str
+    werte: dict[str, Any]
+    consent_nachweis: dict[str, Any]
+    spam_status: Literal["normal", "spam"]
+    eingegangen_am: datetime | str
+    uploads: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ZuweisungCreate(BaseModel):
