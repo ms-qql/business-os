@@ -77,4 +77,5 @@ it("speichert ungesicherten Inhalt vor dem Bild-Upload", async () => {
 
   await waitFor(() => expect(onSaveInhalt).toHaveBeenCalledWith(changed, true));
   expect(uploadSectionBild).toHaveBeenCalledWith("hero", expect.any(File), "", 2);
+  expect(await screen.findByText("Inhalt wurde mit dem Bild gespeichert.")).toBeInTheDocument();
 });

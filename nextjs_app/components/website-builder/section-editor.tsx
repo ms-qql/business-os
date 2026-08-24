@@ -33,6 +33,7 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
   const [visible, setVisible] = React.useState(section.visible);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [info, setInfo] = React.useState<string | null>(null);
 
   // Bild-Upload-State
   const [alt, setAlt] = React.useState(section.bild?.alt_text ?? "");
@@ -58,6 +59,7 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
     JSON.stringify(inhalt) !== JSON.stringify(section.inhalt) || visible !== section.visible;
 
   function patch(teil: Partial<SektionInhaltUnion>) {
+    setInfo(null);
     setInhalt((prev) => ({ ...prev, ...teil }) as SektionInhaltUnion);
   }
 
@@ -67,6 +69,7 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
     setSaving(true);
     try {
       await onSaveInhalt(inhalt, visible);
+      setInfo("Inhalt gespeichert.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Speichern fehlgeschlagen.");
     } finally {
@@ -82,6 +85,7 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
   async function ladeBildHoch(datei: File, e?: React.ChangeEvent<HTMLInputElement>) {
     const res = await handleBild(async () => {
       const gespeicherterInhalt = inhaltDirty ? await onSaveInhalt(inhalt, visible) : null;
+      if (gespeicherterInhalt) setInfo("Inhalt wurde mit dem Bild gespeichert.");
       return uploadSectionBild(section.id, datei, alt, gespeicherterInhalt?.version ?? version);
     }, e);
     if (res) {
@@ -201,6 +205,7 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
       )}
 
       {error && <Alert variant="danger">{error}</Alert>}
+      {info && <Alert variant="success">{info}</Alert>}
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={saving || !inhaltDirty}>
