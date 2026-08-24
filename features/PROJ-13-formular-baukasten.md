@@ -270,7 +270,66 @@ internen Aufräumlauf entfernt.
 **Offen (Backend):** Alle `/formulare`- und `/public/formulare`-Endpunkte sowie die Migration `011_*.sql` sind noch zu bauen (siehe Tech Design). Frontend erwartet exakt die dort definierten Verträge.
 
 ## QA Test Results
-_To be added by /abc-qa_
+
+**Tested:** 2026-08-24  
+**Backend:** FastAPI TestClient, Python 3.10 / pytest 8.3.3  
+**Frontend:** Next.js TypeScript typecheck + Jest (kein Browser-Smoke: der öffentliche Flow scheitert vor der visuellen Abnahme)  
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+- [ ] **AC-1 bis AC-15:** Nicht end-to-end bestanden. Die Frontend- und Backend-Verträge für Entwürfe, öffentliche Snapshots und Einsendungen sind inkompatibel (BUG-1).
+- [x] Backend-Teilprüfungen: Anlage/Vorlagen, Entwurfsmutationen mit Versionskonflikt, Publish/Rücknahme, Domain-gebundener Snapshot, Upload-Magic-Bytes, Spam-Markierung, idempotente Einsendung und Vorgangsanreicherung sind durch 17 PROJ-13-Backendtests abgedeckt.
+
+### Edge Cases Status
+
+- [x] Nicht veröffentlichte oder domainfremde Snapshots liefern ein einheitliches `404`.
+- [x] Doppelte Optionswerte und fehlendes Pflicht-Consent verhindern die Veröffentlichung.
+- [x] Ungültige Upload-Typen werden serverseitig abgewiesen.
+- [ ] Öffentlicher Netzwerk-/Eingabe- und Responsive-Flow nicht abnehmbar, solange BUG-1 besteht.
+
+### Security Audit Results
+
+- [x] Angemeldete Formularrouten verlangen Inhaber- oder Büro-Rolle; Mandant wird nicht aus dem Request-Body bezogen.
+- [x] Öffentliche Snapshots sind an die aufgelöste Betriebsdomain gebunden; fremde Domain liefert `404`.
+- [x] Uploads prüfen Magic Bytes sowie die feste Größenobergrenze.
+- [ ] **BUG-2:** Das öffentliche Rate-Limit vertraut unmittelbar auf den vom Client gesetzten Header `X-Forwarded-For`; Angreifer können die IP pro Request wechseln und die Drosselung umgehen.
+
+### Bugs Found
+
+#### BUG-1: Frontend und Backend haben inkompatible Formularverträge
+
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Ein SHK-Formular veröffentlichen und dessen öffentliche URL öffnen.
+  2. Auf „Weiter“ oder „Absenden“ klicken.
+  3. Expected: Der Browser übermittelt `client_start`, eine Liste von Feldwerten und erhält `{ "status": "erfolgreich" }`.
+  4. Actual: Das Frontend erwartet `komplexitaet`, `config` und `options`, während das Backend `modus`, flache Konfigurationsfelder und `optionen` liefert. Zudem sendet das Frontend `client_startzeit`, `upload_ids` und ein Objekt als `werte`; die API verlangt `client_start` und eine Liste. Dadurch scheitert der öffentliche Ablauf vor bzw. spätestens mit `422`.
+- **Priority:** Fix before deployment
+
+#### BUG-2: Rate-Limit per Client-Header umgehbar
+
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Öffentlichen Upload- oder Einsende-Endpunkt wiederholt aufrufen.
+  2. Bei jedem Request einen anderen `X-Forwarded-For`-Wert mitsenden.
+  3. Expected: Die echte Client-IP wird nur von einem vertrauenswürdigen Proxy übernommen und die Drosselung greift.
+  4. Actual: Der Endpunkt verwendet den beliebigen Header direkt als Rate-Limit-Schlüssel.
+- **Priority:** Fix before deployment
+
+### Automated Regression Results
+
+- [x] Backend: `242 passed` (eine bestehende Pydantic-Warnung).
+- [x] PROJ-13/Kunden/Vorgänge: `56 passed`.
+- [x] Next.js: TypeScript typecheck bestanden; Jest: `30 passed`.
+
+### Summary
+
+- **Acceptance Criteria:** 0/15 end-to-end passed
+- **Bugs Found:** 2 total (0 Critical, 2 High, 0 Medium, 0 Low)
+- **Security:** Issues found
+- **Production Ready:** NO
+- **Recommendation:** Fix bugs first
 
 ## Deployment
 _To be added by /abc-deploy_
