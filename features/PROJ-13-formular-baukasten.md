@@ -1,6 +1,6 @@
 # PROJ-13: Formular-Baukasten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-08-23
 **Last Updated:** 2026-08-24
 
@@ -331,4 +331,7 @@ internen Aufräumlauf entfernt.
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /abc-deploy_
+**Production URL:** https://bizos.app.msce.info
+**Deployed:** 2026-08-24 · **Version:** 0.1.11 · **Host:** Dokploy (Compose), Auto-Deploy via Push auf `main`.
+
+**Nach dem Deploy manuell prüfen:** `/api/health`, Formular anlegen/veröffentlichen, öffentlicher Mehrschritt-Flow inklusive Upload und Dokploy-Deployment-Log. Bei gecachtem Frontend einen Hard-Refresh durchführen.
