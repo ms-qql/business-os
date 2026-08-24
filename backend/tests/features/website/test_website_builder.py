@@ -272,6 +272,8 @@ def test_public_section_bild_uses_same_origin_url(client, mandant):
         files={"datei": ("hero.png", _tiny_png(), "image/png")},
     )
     assert uploaded.status_code == 200, uploaded.text
+    editor_hero = next(s for s in uploaded.json()["sections"] if s["id"] == hero["id"])
+    assert editor_hero["bild"]["url"] == f"https://shk-mueller.de/public/sections/{hero['id']}/bild"
 
     site = client.get("/public/site", headers={"Host": "shk-mueller.de"})
     public_hero = next(s for s in site.json()["sections"] if s["typ"] == "hero")

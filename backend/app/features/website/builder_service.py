@@ -8,6 +8,7 @@ from PIL import Image, ImageOps
 
 from app.errors import ConflictError, NotFoundError, StorageError, ValidationError
 from app.features.website import builder_repository as repo
+from app.features.website import repository as website_repo
 from app.features.website import builder_schemas as sch
 from app.features.website.builder_schemas import (
     BildRead,
@@ -66,8 +67,14 @@ def _public_bild(mandant_id: str, section: dict) -> BildRead | None:
     bild = repo.get_bild(mandant_id, section["id"])
     if not bild:
         return None
+    domain = website_repo.get_domain(mandant_id)
+    # Der Editor läuft auf der Betriebszentrale, nicht auf der öffentlichen
+    # Mandantendomain. Ein relativer Pfad würde dort den falschen Host auflösen.
+    url = f"/public/sections/{section['id']}/bild"
+    if domain and domain["status"] == "aktiv":
+        url = f"https://{domain['hostname']}{url}"
     return BildRead(
-        url=f"/public/sections/{section['id']}/bild",
+        url=url,
         alt_text=bild["alt_text"] or "",
         anzeigename=bild.get("anzeigename"),
     )
