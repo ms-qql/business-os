@@ -160,6 +160,7 @@ class PublicFeld(BaseModel):
     label: str
     hilfetext: Optional[str] = None
     pflichtfeld: bool
+    optional_in_einfach: bool = False
     optionen: list[PublicOption] = []
     min: Optional[float] = None
     max: Optional[float] = None

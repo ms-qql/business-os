@@ -25,7 +25,6 @@ import {
   veroeffentlichen,
   veroeffentlichungZuruecknehmen,
   getEinbindung,
-  type Veroeffentlicht,
 } from "@/lib/api/formulare";
 import {
   FELDTYPEN,
@@ -242,12 +241,10 @@ export default function FormularEditorPage() {
     setPublishing(true);
     setPublishError(null);
     try {
-      const res: Veroeffentlicht = await veroeffentlichen(draft.id);
-      const d = await getFormular(draft.id);
-      reloadAfter(d);
+      const res = await veroeffentlichen(draft.id, draft.draft_revision);
+      reloadAfter(res);
       setEinbindung(null);
       setPublishError(null);
-      void res;
     } catch (err) {
       setPublishError(
         err instanceof ApiError ? err.message : "Veröffentlichung fehlgeschlagen.",
@@ -259,7 +256,7 @@ export default function FormularEditorPage() {
 
   async function onZuruecknehmen() {
     if (!draft) return;
-    const res = await guard(() => veroeffentlichungZuruecknehmen(draft!.id));
+    const res = await guard(() => veroeffentlichungZuruecknehmen(draft!.id, draft!.draft_revision));
     if (res) {
       reloadAfter(res);
       setEinbindung(null);

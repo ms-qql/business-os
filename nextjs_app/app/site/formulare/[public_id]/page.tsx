@@ -176,12 +176,12 @@ export default function PublicFormularPage() {
     setSendeFehler(null);
     try {
       // Dateien zuerst hochladen (Server prüft Typ/Größe/Menge); danach Einsendung.
-      const uploadIds: string[] = [];
+      const uploads: Record<string, string[]> = {};
       for (const f of alleSichtbaren) {
         if (f.typ !== "upload") continue;
         for (const datei of dateien[f.id] ?? []) {
           const res = await uploadFormularDatei(publicId, datei, f.id, uebermittlungskennung);
-          uploadIds.push(res.upload_id);
+          (uploads[f.id] ??= []).push(res.upload_id);
         }
       }
       const payloadWerte: Record<string, unknown> = {};
@@ -194,7 +194,7 @@ export default function PublicFormularPage() {
       await submitEinsendung(publicId, {
         uebermittlungskennung,
         werte: payloadWerte,
-        upload_ids: uploadIds,
+        uploads,
         honeypot,
         client_startzeit: clientStartzeit,
       });
