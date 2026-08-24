@@ -1,8 +1,8 @@
 # PROJ-22: Gewerke – Kalkulationseinheiten für Angebote
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-24
-**Last Updated:** 2026-08-24 (QA: NOT READY — 1 Critical, 2 High)
+**Last Updated:** 2026-08-24 (Re-QA: READY — alle Bugs verifiziert gefixt)
 
 ## Dependencies
 - Requires: PROJ-3 (Kunden, Objekte, Projekte und Dokumente) — Angebote sind einem Projekt zugeordnet.
@@ -268,6 +268,41 @@ Fix-Vorschlag: Backend `list_kategorien` um `COUNT(gewerk.id)`-Join erweitern un
 
 ### Empfehlung
 **NOT READY.** 1 Critical (BUG-1, macht AC4/AC5 in der UI unbenutzbar) + 2 High (BUG-2 Fehlermeldungslogik, BUG-3 Kategorie-Anzeige) offen. Rückgabe an Frontend zur Fix-Runde, danach Re-Verifikation durch QA.
+
+## Re-QA Test Results (Fix-Verifikation)
+**Datum:** 2026-08-24 · **Tester:** jupiter-qa · **Branch:** specs/PROJ-22-gewerke-kalkulationseinheiten
+
+### Testumfang
+- Backend: `backend/.venv/bin/python -m pytest` (venv aus Haupt-Repo, Worktree hat kein eigenes `.venv`) → **275/275 grün**, keine Regression.
+- Frontend: `npm run typecheck` (tsc --noEmit) grün, `npm run build` grün, Route `/gewerke` weiterhin generiert.
+- Eigener unabhängiger API-Testlauf (nicht nur bestehende Suite übernommen): temporärer pytest-Test direkt gegen `TestClient` schreibt Kategorie an, legt Gewerk an, übernimmt es in ein Angebot, liest `PositionRead`- und `KategorieRead`-JSON zurück — Test nach Verifikation wieder entfernt (nicht Teil der permanenten Suite, redundant zu den vom Backend-Worker bereits committeten Regressionstests `test_position_aus_gewerk_setzt_aus_gewerk_flag` und `test_kategorie_liste_liefert_anzahl_gewerke`).
+- Code-Review der 8 Frontend-Fehlerbehandlungsstellen (BUG-2) einzeln nachgezählt und Bedingung geprüft.
+- Kein laufender Server verfügbar (keine SEED-Postgres-Instanz in diesem Environment) — wie im Vorlauf Fokus auf Code-Verifikation + eigenem API-Testlauf statt Browser-Smoke; für BUG-1/BUG-3 ausreichend, da beide reine Datenkontrakt-Bugs sind und die Frontend-Bedingung (`p.aus_gewerk`, `k.anzahl_gewerke`) bereits im Code als korrekt verifiziert ist — sobald das Backend das Feld liefert, ist die UI-Kette geschlossen.
+
+### Re-Test der offenen Punkte
+| Bug | Re-Test | Ergebnis |
+|---|---|---|
+| BUG-1 (Critical) — `aus_gewerk` fehlt in `PositionRead` | Eigener API-Call: Gewerk in Angebot übernommen, JSON-Response von `POST /angebote/{id}/positionen/aus-gewerk` geprüft. `schemas.py:63` hat jetzt `aus_gewerk: bool = False`, `service.py:92` setzt `"aus_gewerk": kalkuliert is not None`. | ✅ FIXED — `aus_gewerk: true` im Response bestätigt. Frontend-Bedingungen `vorgang-angebote.tsx:141,147,164` (`p.aus_gewerk`) sind unverändert korrekt und greifen jetzt. AC4/AC5 damit über die UI erreichbar. |
+| BUG-2 (High) — invertierte Fehlerbehandlung | Alle 8 Stellen einzeln per Grep nachgezählt: `gewerk_uebernahme.tsx` (2), `gewerk_editor.tsx` (1), `kategorie_verwaltung.tsx` (4), `position_override.tsx` (1). Jede prüft jetzt `!(err instanceof ApiError) ? SERVER_FEHLER : err.message`. | ✅ FIXED — Bedingung korrekt umgedreht an allen 8 Stellen; kein Rest-Vorkommen der alten (invertierten) Form gefunden. AC9 damit erfüllbar. |
+| BUG-3 (High) — `anzahl_gewerke` fehlt in `KategorieRead` | Eigener API-Call: Kategorie ohne Gewerk (`anzahl_gewerke == 0`), dann mit einem Gewerk (`anzahl_gewerke == 1`) geprüft. `repository.py:23-32` nutzt jetzt `LEFT JOIN` + `COUNT(g.id)` + `GROUP BY`; `schemas.py:38` hat `anzahl_gewerke: int = 0`. | ✅ FIXED — Zähler korrekt in beiden Fällen. Frontend `kategorie_verwaltung.tsx:165` (`k.anzahl_gewerke`) rendert jetzt einen echten Wert statt `undefined`. |
+
+### Acceptance Criteria (Delta zum vorigen Lauf)
+| # | Kriterium | Status |
+|---|---|---|
+| 4 | Übernahme in Angebot: Bezeichnung/Einheit/Preis vorausgefüllt, Snapshot ohne Live-Ref, Herkunftskennzeichnung in UI | ✅ PASS (vorher ⚠️ TEILWEISE — Blocker durch BUG-1 behoben) |
+| 5 | Preis-Override mit Begründungspflicht, intern sichtbar, nicht im PDF, über UI erreichbar | ✅ PASS (vorher ⚠️ TEILWEISE — Blocker durch BUG-1 behoben) |
+| 9 | Offline-Fehlermeldung korrekt vs. Server-Validierungsfehler | ✅ PASS (vorher ❌ FAIL — BUG-2 behoben) |
+| 1 | Kategorien + Gewerke CRUD inkl. Kategorie-Anzeige (`anzahl_gewerke`) | ✅ PASS (vorher ✅ PASS mit Hinweis auf BUG-3 — jetzt vollständig) |
+
+**Ergebnis: 9/9 PASS.**
+
+### Regression
+- Volle Backend-Suite: 275/275 grün (2 zusätzliche Tests durch Backend-Fix-Commit, kein Ausfall).
+- Frontend-Build unverändert grün, `/gewerke`-Route weiterhin generiert.
+- Bestehende BUG-1/BUG-3-Regressionstests aus Commit 3e26fe3 im Repo vorhanden und grün.
+
+### Empfehlung
+**READY.** Alle 3 Bugs (1 Critical, 2 High) unabhängig verifiziert behoben, keine Regression, alle 9 Acceptance Criteria PASS. Feature kann zum Pre-Deploy-Gate weiter.
 
 ## Deployment
 _To be added by /abc-deploy_
