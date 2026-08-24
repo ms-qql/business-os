@@ -79,6 +79,8 @@ class VorgangDetail(BaseModel):
     updated_at: datetime | str
     historie: list[HistorieRead]
     dokumente: list[DokumentRead]
+    # PROJ-13: verknüpfte Formular-Einsendung (sofern die Anfrage daraus entstand).
+    formular_einsendung: Optional[dict] = None
 
 
 class ZuweisungCreate(BaseModel):

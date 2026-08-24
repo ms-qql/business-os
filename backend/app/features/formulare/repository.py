@@ -491,7 +491,8 @@ def get_uploads_by_kennung(mandant_id: str, formular_id: str,
 
 def get_einsendung_by_kennung(mandant_id: str, uebermittlungskennung: str) -> dict | None:
     rows = db.engine.query(
-        "SELECT id FROM formular_einsendung WHERE mandant_id = %s "
+        "SELECT id, spam_status, anfrage_id, vorgang_id "
+        "FROM formular_einsendung WHERE mandant_id = %s "
         "AND uebermittlungskennung = %s",
         (mandant_id, uebermittlungskennung), mandant_id=mandant_id,
     )
