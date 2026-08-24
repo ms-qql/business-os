@@ -30,7 +30,7 @@ export function proxy(req: NextRequest) {
   const host = req.headers.get("host")?.split(":")[0] ?? "";
   const path = req.nextUrl.pathname;
 
-  if (path.startsWith("/api")) {
+  if (path.startsWith("/api") || path.startsWith("/public/")) {
     if (!INTERNAL_PROXY_SECRET) return NextResponse.next();
     const headers = new Headers(req.headers);
     headers.set("x-internal-proxy-secret", INTERNAL_PROXY_SECRET);
