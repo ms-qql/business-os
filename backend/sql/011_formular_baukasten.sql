@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS formular (
     -- werden mit 409 abgewiesen (gleiches Muster wie builder/version).
     draft_revision INTEGER NOT NULL DEFAULT 1,
     veroeffentlicht BOOLEAN NOT NULL DEFAULT FALSE,
-    aktuelle_version_id UUID REFERENCES formular_version(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -108,6 +107,9 @@ CREATE TABLE IF NOT EXISTS formular_version (
     UNIQUE (formular_id, nummer),
     UNIQUE (public_id)
 );
+
+ALTER TABLE formular ADD COLUMN IF NOT EXISTS aktuelle_version_id UUID
+    REFERENCES formular_version(id) ON DELETE SET NULL;
 
 -- ---------------------------------------------------------------------------
 -- Öffentliche Einsendung (unveränderliche Antwort)
