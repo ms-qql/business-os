@@ -332,8 +332,8 @@ internen Aufräumlauf entfernt.
 
 ## Deployment
 **Production URL:** https://bizos.app.msce.info
-**Deployed:** 2026-08-24 · **Version:** 0.1.12 · **Host:** Dokploy (Compose), Auto-Deploy via Push auf `main`.
+**Deployed:** 2026-08-24 · **Version:** 0.1.13 · **Host:** Dokploy (Compose), Auto-Deploy via Push auf `main`.
 
-**Ausgeliefert:** vereinfachte Kachel-Optionen mit automatisch erzeugtem Wert, verständliche API-Fehler und das Löschen nie veröffentlichter Entwürfe.
+**Ausgeliefert:** vereinfachte Kachel-Optionen mit automatisch erzeugtem Wert, verständliche API-Fehler, das Löschen nie veröffentlichter Entwürfe, benannte Schritte und verzögerte Optionswarnungen.
 
-**Nach dem Deploy manuell prüfen:** `/api/health`, Kachel mit „Haus“/„Wohnung“ anlegen, Entwurf löschen, Formular veröffentlichen sowie Dokploy-Deployment-Log. Bei gecachtem Frontend einen Hard-Refresh durchführen.
+**Nach dem Deploy manuell prüfen:** `/api/health`, neue Schritte benennen, Kachel mit „Haus“/„Wohnung“ anlegen, Entwurf löschen, Formular veröffentlichen sowie Dokploy-Deployment-Log. Bei gecachtem Frontend einen Hard-Refresh durchführen.
