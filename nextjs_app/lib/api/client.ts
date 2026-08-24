@@ -70,3 +70,11 @@ export async function operatorApiFetch<T>(
     }
   });
 }
+
+/** Öffentlicher (nicht angemeldeter) Aufruf — ohne Token, wirft ApiError. */
+export async function publicApiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  return request<T>(path, options, null, () => {});
+}

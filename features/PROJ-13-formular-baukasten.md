@@ -253,6 +253,22 @@ internen Aufräumlauf entfernt.
 - Vor Backend-Implementierung ist die nächste freie Nummer im echten
   `backend/sql/`-Verzeichnis zu bestätigen; laut aktuellem Stand ist `011` frei.
 
+## Frontend-Implementierung (abc-frontend)
+
+**Stack:** Next.js (App Router) + shadcn-artige UI, react-hook-form/Zod-Muster, `apiFetch`/`publicApiFetch` — wie in Tech Design vorgegeben. Branch `main`.
+
+**Anlage (Next.js):**
+- `lib/schemas/formular.ts` — Typen + Zod für Feldtyp-Katalog (10 Typen), Schritte, Optionen, Draft, öffentlichen Snapshot, Einbindung.
+- `lib/api/formulare.ts` — Client für alle Verträge (`/formulare/*`, `/public/formulare/*`). Angemeldete Routen via `apiFetch`, öffentliche via `publicApiFetch` (kein Token, Honeypot-/Spam-Schutz serverseitig). `FormularConflictError` bei `409`.
+- `components/formulare/feld-renderer.tsx` — ein Feldrenderer für Editor-Vorschau und öffentliche Mehrstufenansicht (Adresse strukturiert, Kachel/Radio/Dropdown, Consent, Upload via `renderUpload`).
+- `components/formulare/feld-editor.tsx` — Feldeigenschaften (Label, Hilfetext, Pflichtfeld, `optional_in_einfach`, typ-spezifische Konfig, Übernahme-Zuordnung, Optionseditor mit Doppelwert-Prüfung).
+- `app/(app)/formulare/page.tsx` — Liste (Leerform / SHK- / Entrümpelungs-Vorlage, Entwurf/live-Badge).
+- `app/(app)/formulare/editor/[id]/page.tsx` — Editor: Name, Komplexitätsstufe, Schritte (anlegen/umbenennen/reihenfolge/löschen), Felder (10 Typen, bearbeiten/reihenfolge/löschen), Vorschau Einfach/Erweitert, Publish-Check (≥1 Schritt, ≥1 Feld, genau 1 Pflicht-Consent, gültige Optionen), Veröffentlichung zurücknehmen, Einbindung (Direktlink/iframe/JS).
+- `app/site/formulare/[public_id]/page.tsx` — öffentliche Mehrstufenansicht: Fortschrittsanzeige, Vor/Zurück mit erhaltenen Werten, clientseitige Pflicht-/Typ-/Upload-Validierung (JPEG/PNG/WebP/PDF, 15 MB), Honeypot, idempotente Kennung, Bestätigung, wiederholbarer Netzwerkfehler, 404 ohne Mandanteninfo.
+- Navigation: `formulare` in `layout.tsx` (ICONS/LABELS/PATHS) und `tokens.ts` `NAV_RECHTE` für Inhaber/Büro ergänzt.
+
+**Offen (Backend):** Alle `/formulare`- und `/public/formulare`-Endpunkte sowie die Migration `011_*.sql` sind noch zu bauen (siehe Tech Design). Frontend erwartet exakt die dort definierten Verträge.
+
 ## QA Test Results
 _To be added by /abc-qa_
 
