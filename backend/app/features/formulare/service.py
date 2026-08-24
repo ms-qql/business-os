@@ -143,9 +143,9 @@ def delete_formular(mandant_id: str, formular_id: str) -> None:
     repo.delete_formular(mandant_id, formular_id)
 
 
-def add_schritt(mandant_id: str, formular_id: str, draft_revision: int) -> dict:
+def add_schritt(mandant_id: str, formular_id: str, titel: str, draft_revision: int) -> dict:
     _require_formular(mandant_id, formular_id)
-    updated = repo.add_schritt(mandant_id, formular_id, draft_revision)
+    updated = repo.add_schritt(mandant_id, formular_id, titel, draft_revision)
     if not updated:
         raise ConflictError("Das Formular wurde zwischenzeitlich geändert. Bitte neu laden.")
     return _entwurf_to_dict(mandant_id, updated)
@@ -354,7 +354,10 @@ def get_einbindung(mandant_id: str, formular_id: str, hostname: str | None) -> d
     if not version:
         raise NotFoundError("Veröffentlichung nicht gefunden.")
     public_id = version["public_id"]
-    base = f"https://{hostname}" if hostname else ""
+    from app.features.website import repository as website_repo
+    domain = website_repo.get_domain(mandant_id)
+    public_hostname = domain["hostname"] if domain and domain["status"] == "aktiv" else hostname
+    base = f"https://{public_hostname}" if public_hostname else ""
     direktlink = f"{base}/site/formulare/{public_id}" if base else f"/site/formulare/{public_id}"
     iframe = (f'<iframe src="{direktlink}" width="100%" height="800" '
               f'frameborder="0" title="{formular["name"]}"></iframe>')

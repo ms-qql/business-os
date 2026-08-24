@@ -30,6 +30,7 @@ class FormularPatch(BaseModel):
 
 
 class SchrittCreate(BaseModel):
+    titel: str = Field(min_length=1)
     draft_revision: int = Field(ge=1)
 
 

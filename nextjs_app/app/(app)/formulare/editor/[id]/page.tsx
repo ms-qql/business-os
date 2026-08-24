@@ -29,6 +29,7 @@ import {
 import {
   FELDTYPEN,
   FELDTYP_LABELS,
+  hatOptionen,
   KOMPLEXITAET,
   KOMPLEXITAET_LABELS,
   type Einbindung,
@@ -206,7 +207,7 @@ export default function FormularEditorPage() {
           optional_in_einfach: erg.optional_in_einfach,
           config: erg.config,
           uebernahme: erg.uebernahme,
-          options: erg.options,
+          options: hatOptionen(feld.typ) ? erg.options : undefined,
         },
         draft!.draft_revision,
       ),
@@ -346,14 +347,14 @@ export default function FormularEditorPage() {
                       : "border-[var(--color-border)]"
                   }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setActiveStepId(s.id)}
-                    className="flex-1 text-left text-sm font-medium"
-                    aria-pressed={s.id === activeStepId}
-                  >
-                    {s.titel}
-                  </button>
+                  <Input
+                    defaultValue={s.titel}
+                    placeholder={`Schritt ${i + 1}`}
+                    onFocus={() => setActiveStepId(s.id)}
+                    onBlur={(e) => void onRenameStep(s.id, e.target.value)}
+                    aria-label={`Name von Schritt ${i + 1}`}
+                    className="h-8 flex-1 border-0 bg-transparent px-0 text-sm font-medium shadow-none"
+                  />
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
