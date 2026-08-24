@@ -20,7 +20,9 @@ from app.storage import InMemoryStorage  # noqa: E402
 SQLITE_SCHEMA = """
 CREATE TABLE mandanten (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active',
-    created_at TEXT NOT NULL DEFAULT 'now'
+    created_at TEXT NOT NULL DEFAULT 'now',
+    branchenpaket_kennung TEXT, branchenpaket_version INTEGER,
+    branchenpaket_uebernommen_am TEXT
 );
 CREATE TABLE nutzer (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT NOT NULL,

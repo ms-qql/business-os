@@ -22,7 +22,7 @@ def test_cross_tenant_paket_isolation(client):
                     headers={"Authorization": f"Bearer {tok_b}"}, json={"kennung": "shk"})
     assert r.status_code == 201, r.text
     status_a = client.get("/onboarding", headers={"Authorization": f"Bearer {tok_a}"}).json()
-    assert status_a["branchenpaket"]["kennung"] is None
+    assert status_a["paket_info"]["kennung"] is None
     rows = db.engine.query("SELECT branchenpaket_kennung FROM mandanten WHERE id = %s",
                            (a,), mandant_id=a)
     assert rows[0]["branchenpaket_kennung"] is None

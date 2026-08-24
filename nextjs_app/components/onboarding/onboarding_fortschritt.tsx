@@ -4,6 +4,7 @@ import { DomainSchritt } from "@/components/onboarding/domain_schritt";
 import { PostfachSchritt } from "@/components/onboarding/postfach_schritt";
 import { PreislisteSchritt } from "@/components/onboarding/preisliste_schritt";
 import { TestanfrageSchritt } from "@/components/onboarding/testanfrage_schritt";
+import { BranchenpaketWahl } from "@/components/onboarding/branchenpaket_wahl";
 import { VeroeffentlichenDialog } from "@/components/onboarding/veroeffentlichen_dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/label";
@@ -24,13 +25,18 @@ export function OnboardingFortschritt({
 }) {
   const [aufgeklappt, setAufgeklappt] = React.useState<string | null>(null);
 
-  const sortiert = [...status.schritte].sort((a, b) => {
+  // Wird nach erfolgreicher Paketübernahme mit dem server-autoritativen Status befüllt,
+  // damit der neue Pflichtschritt sofort als erledigt erscheint (vor dem nächsten Reload).
+  const [statusOverride, setStatusOverride] = React.useState<OnboardingStatus | null>(null);
+  const effektiv = statusOverride ?? status;
+
+  const sortiert = [...effektiv.schritte].sort((a, b) => {
     // Reihenfolge aus dem Vertrag beibehalten: Schritt-Nummer über Index der Schritt-Liste.
-    return status.schritte.indexOf(a) - status.schritte.indexOf(b);
+    return effektiv.schritte.indexOf(a) - effektiv.schritte.indexOf(b);
   });
 
-  const erledigtPflicht = status.schritte.filter((s) => s.pflicht && s.status === "erledigt").length;
-  const gesamtPflicht = status.schritte.filter((s) => s.pflicht).length;
+  const erledigtPflicht = effektiv.schritte.filter((s) => s.pflicht && s.status === "erledigt").length;
+  const gesamtPflicht = effektiv.schritte.filter((s) => s.pflicht).length;
   const alleErledigt = erledigtPflicht === gesamtPflicht;
 
   function panelFuer(schritt: Schritt) {
@@ -48,6 +54,16 @@ export function OnboardingFortschritt({
         return <PreislisteSchritt onChanged={onChanged} />;
       case "testanfrage":
         return <TestanfrageSchritt testvorgang={schritt.testvorgang} onChanged={onChanged} />;
+      case "branchenpaket":
+        return (
+          <BranchenpaketWahl
+            onUebernommen={(ergebnis) => {
+              // Server liefert den aktualisierten Onboarding-Status inkl. erledigtem Schritt.
+              setStatusOverride(ergebnis.onboarding_status);
+              onChanged();
+            }}
+          />
+        );
       default:
         // Betriebsdaten, Branding, Leistungsseiten → "Jetzt bearbeiten" verweist auf Website-Einstellungen.
         return (
@@ -70,13 +86,13 @@ export function OnboardingFortschritt({
           ) : (
             <Badge variant="warning">Einrichtung läuft</Badge>
           )}
-          {status.veroeffentlicht && <Badge variant="brand">Live</Badge>}
+          {effektiv.veroeffentlicht && <Badge variant="brand">Live</Badge>}
         </div>
-        <VeroeffentlichenDialog status={status} onVeroeffentlicht={onChanged} />
+        <VeroeffentlichenDialog status={effektiv} onVeroeffentlicht={onChanged} />
       </div>
 
-      {status.warnung && (
-        <Alert variant="warning">{status.warnung}</Alert>
+      {effektiv.warnung && (
+        <Alert variant="warning">{effektiv.warnung}</Alert>
       )}
 
       <div className="space-y-3">

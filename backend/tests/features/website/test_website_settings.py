@@ -21,10 +21,20 @@ def test_non_owner_cannot_read_settings(client, mandant):
 
 def test_owner_reads_and_updates_settings(client, mandant):
     tok = _login(client, mandant, "inh@shk.de", "Inhaber")
+    # Leistungsseiten entstehen erst aus dem gewählten Branchenpaket
+    # (PROJ-14 / ADR-14-2) — kein globaler Seed mehr.
     r = client.get("/website-settings", headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 200, r.text
-    assert r.json()["leistungen"]  # Katalog wurde geseedet
-    assert r.json()["domain"] is None
+    assert r.json()["leistungen"] == []
+    # Paket übernehmen -> Leistungen vorhanden.
+    r_p = client.post("/onboarding/branchenpaket-uebernehmen",
+                      headers={"Authorization": f"Bearer {tok}"},
+                      json={"kennung": "shk"})
+    assert r_p.status_code == 201, r_p.text
+    settings = client.get("/website-settings",
+                          headers={"Authorization": f"Bearer {tok}"}).json()
+    assert settings["leistungen"]  # aus dem Paket geseedet
+    assert settings["domain"] is None
 
     r2 = client.patch(
         "/website-settings", headers={"Authorization": f"Bearer {tok}"},
@@ -37,7 +47,14 @@ def test_owner_reads_and_updates_settings(client, mandant):
 
 def test_owner_updates_leistungen(client, mandant):
     tok = _login(client, mandant, "inh@shk.de", "Inhaber")
-    settings = client.get("/website-settings", headers={"Authorization": f"Bearer {tok}"}).json()
+    # Leistungen stammen aus dem Branchenpaket (PROJ-14); erst nach Übernahme
+    # sind sie vorhanden.
+    r_p = client.post("/onboarding/branchenpaket-uebernehmen",
+                      headers={"Authorization": f"Bearer {tok}"},
+                      json={"kennung": "shk"})
+    assert r_p.status_code == 201, r_p.text
+    settings = client.get("/website-settings",
+                          headers={"Authorization": f"Bearer {tok}"}).json()
     slug = settings["leistungen"][0]["slug"]
 
     r = client.patch(

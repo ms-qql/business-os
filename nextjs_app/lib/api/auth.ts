@@ -9,6 +9,8 @@ export interface AuthUser {
   rolle: Rolle;
   mandant_id: string;
   mandant_name: string;
+  paket_kennung?: string | null;
+  paket_name?: string | null;
 }
 
 interface LoginResponse {
@@ -53,6 +55,7 @@ export async function confirmPasswordReset(
 export async function fetchMe(): Promise<AuthUser> {
   const me = await apiFetch<{
     id: string; mandant_id: string; name: string; email: string; role: string;
+    paket_kennung?: string | null; paket_name?: string | null;
   }>("/auth/me");
   return {
     user_id: me.id,
@@ -61,6 +64,8 @@ export async function fetchMe(): Promise<AuthUser> {
     rolle: me.role === "Buero" ? "Büro" : me.role as Rolle,
     mandant_id: me.mandant_id,
     mandant_name: "Mein Betrieb",
+    paket_kennung: me.paket_kennung ?? null,
+    paket_name: me.paket_name ?? null,
   };
 }
 

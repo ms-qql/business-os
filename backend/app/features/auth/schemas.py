@@ -20,6 +20,8 @@ class MeResponse(BaseModel):
     email: str
     role: str
     status: str
+    paket_kennung: str | None = None
+    paket_name: str | None = None
 
 
 class InvitationAcceptRequest(BaseModel):

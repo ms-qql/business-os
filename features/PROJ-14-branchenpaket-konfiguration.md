@@ -1,6 +1,6 @@
 # PROJ-14: Branchenpaket-Konfiguration
 
-## Status: In Review (QA: NOT READY — 1 Critical, 2 High)
+## Status: In Review (QA: READY — Bugs behoben, Re-Verifikation grün)
 **Created:** 2026-08-24
 **Last Updated:** 2026-08-24
 
@@ -317,7 +317,44 @@ Fix-Vorschlag: Backend-Feldnamen an Frontend-Contract angleichen (`veroeffentlic
 Fix-Vorschlag: `AuthUser` um `paketKennung`/`paketName` erweitern, `fetchMe()` mappen, in der Sidebar (`app/(app)/layout.tsx:110-118`, neben Rolle/Mandant) oder einer Betriebsinfo-Fläche anzeigen.
 
 ### Produktionsreife
-**NOT READY.** BUG-1 ist Critical (Datenintegrität, verletzt explizit dokumentierten Edge Case), BUG-2/BUG-3 sind High (verletzen AC2 vollständig). Rückgabe an Backend (BUG-1) und Frontend (BUG-2 Frontend-Teil, BUG-3) über `jupiter-coordinator`.
+**NOT READY** (Erstlauf). BUG-1 Critical, BUG-2/BUG-3 High. Rückgabe an Backend (BUG-1) und Frontend (BUG-2 Frontend-Teil, BUG-3) über `jupiter-coordinator`.
+
+## QA Re-Verifikation (abc-qa)
+**Getestet:** 2026-08-24 · **Ergebnis:** READY — alle 3 Bugs unabhängig verifiziert behoben
+
+### BUG-1 (Critical, Rollback/ADR-14-3) — verifiziert behoben
+`create_preisliste_position` liest im tx-Pfad jetzt über `tx.query` statt `db.engine.query` (`repository.py:350`) — kein vorzeitiger Commit mehr über die globale Engine.
+- Eigener Beweistest `test_zz_qa_rollback.py::test_rollback_on_partial_failure` (mockt Fehler in `formular_repo.seed_template_tx` mitten in der Übernahme) unabhängig erneut ausgeführt: ✅ PASS — 0 Leistungsseiten, 0 Preislistenpositionen, `branchenpaket_kennung IS NULL` nach Fehler; Retry danach erfolgreich (201, kein 409-Lock durch Teilbestand).
+- Volle Backend-Suite: `260 passed, 0 failed`.
+- Red-Team-Suite `test_zz_qa_redteam_branchenpaket.py` (5 Tests) + `test_branchenpaket.py` (11 Tests): alle grün.
+
+### BUG-2 (High, Contract-Mismatch) — verifiziert behoben
+Code-Verifikation Backend↔Frontend:
+- `schemas.py:40` `veroeffentlicht`/`veroeffentlicht_am` ohne Umlaut ✅ passt zu `onboarding.ts:67-68`.
+- `schemas.py:46` `paket_info` statt `branchenpaket` ✅ passt zu `onboarding.ts:72`; `page.tsx:84` liest `status.paket_info` und rendert die Karte (`page.tsx:96`).
+- `service.py:441` `BranchenpaketUebernahmeResult(... onboarding_status=status)` ✅ passt zu `onboarding.ts:159` (`onboarding_status`).
+- `test_onboarding.py` (Regressionssuite für Onboarding-Status-Contract) grün.
+
+### BUG-3 (High, Paket-Sichtbarkeit Büro) — verifiziert behoben, AC2 erfüllt
+- `auth/routes.py:52-58` `/auth/me` liefert `paket_kennung`/`paket_name`.
+- `auth.ts:58,67-68` `fetchMe()` mappt beide Felder jetzt in `AuthUser`.
+- `layout.tsx:118-125` Sidebar rendert `Paket: <name>` ohne Rollen-Gate — sichtbar für Inhaber **und** Büro (Sidebar ist Teil des gemeinsamen App-Layouts, nicht der Inhaber-only-Onboarding-Seite). AC2 „sichtbar Inhaber+Büro" damit erfüllt.
+
+### Zusatzverifikation (Regression)
+- `tsc --noEmit`: 0 Fehler.
+- `npm run build`: grün, alle Routen inkl. `/onboarding` gebaut.
+- `pytest tests/test_isolation.py tests/test_security.py`: grün (Cross-Tenant/JWT-Regression unverändert bestanden).
+
+### Akzeptanzkriterien (Delta zum Erstlauf)
+| # | Kriterium | Ergebnis |
+|---|---|---|
+| 2 | Paket am Mandanten gespeichert, sichtbar Inhaber+Büro, nicht änderbar | ✅ PASS (BUG-2, BUG-3 behoben) |
+| Edge Case | Kopierfehler → Onboarding nicht abgeschlossen, kein Teilbestand | ✅ PASS (BUG-1 behoben) |
+
+Alle übrigen ACs/Edge-Cases unverändert PASS aus Erstlauf (siehe oben); AC3 (Kategorien/Gewerke/Material/Textbausteine) bleibt bewusst außerhalb Scope, PROJ-22-Blocker.
+
+### Produktionsreife
+**READY.** Keine Critical/High-Bugs mehr offen. Empfehlung: weiter zum Pre-Deploy-Gate (Coordinator-Entscheidung).
 
 ## Deployment
 _To be added by /abc-deploy_

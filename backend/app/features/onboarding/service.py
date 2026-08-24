@@ -7,6 +7,7 @@ from app import db
 from app.errors import ConflictError, NotFoundError, ValidationError
 from app.features.email import mailclient
 from app.features.email import repository as email_repo
+from app.features.onboarding import branchenpakete
 from app.features.onboarding import repository as repo
 from app.features.onboarding import schemas
 
@@ -52,6 +53,16 @@ def get_onboarding_status(mandant_id: str) -> schemas.OnboardingStatus:
             )
 
     schritte: list[schemas.OnboardingSchritt] = []
+
+    # 0) Branchenpaket (PROJ-14, Pflichtschritt)
+    paket = repo.get_mandant_paket(mandant_id)
+    if paket and paket.get("branchenpaket_kennung"):
+        schritte.append(_schritt_erledigt("branchenpaket", "Branchenpaket", True,
+                                           ziel="Onboarding"))
+    else:
+        schritte.append(_schritt("branchenpaket", "Branchenpaket", True, "offen",
+                                 "Noch kein Branchenpaket übernommen.",
+                                 "Onboarding"))
 
     # 1) Betriebsdaten
     fehlend_bd = _fehlende_betriebsdaten(settings)
@@ -148,12 +159,20 @@ def get_onboarding_status(mandant_id: str) -> schemas.OnboardingStatus:
                        + ", ".join(unvollstaendig) + ".")
 
     return schemas.OnboardingStatus(
-        schritte=schritte, veröffentlicht=veröffentlicht,
-        veröffentlicht_am=domain.get("veröffentlicht_am") if veröffentlicht else None,
+        schritte=schritte, veroeffentlicht=veröffentlicht,
+        veroeffentlicht_am=domain.get("veröffentlicht_am") if veröffentlicht else None,
         warnung=warnung,
         postfach_test=postfach_test,
         domain_status=domain.get("status") if domain else None,
         testvorgang_id=testvorgang["vorgang_id"] if testvorgang else None,
+        paket_info=schemas.BranchenpaketInfo(
+            kennung=paket.get("branchenpaket_kennung") if paket else None,
+            name=(branchenpakete.get_paket(paket["branchenpaket_kennung"]).name
+                  if paket and paket.get("branchenpaket_kennung")
+                  and branchenpakete.get_paket(paket["branchenpaket_kennung"]) else None),
+            version=paket.get("branchenpaket_version") if paket else None,
+            uebernommen_am=paket.get("branchenpaket_uebernommen_am") if paket else None,
+        ),
     )
 
 
@@ -360,6 +379,75 @@ def delete_testvorgang(mandant_id: str, vorgang_id: str) -> None:
 
     with db.engine.transaction(mandant_id=mandant_id) as tx:
         repo.cascade_delete_testvorgang(tx, mandant_id, vorgang_id, kunde_id, objekt_id)
+
+
+# --- Branchenpaket (PROJ-14, atomare Übernahme) -------------------------
+
+def list_branchenpakete() -> list[schemas.BranchenpaketOption]:
+    return [schemas.BranchenpaketOption(**o) for o in branchenpakete.liste_optionen()]
+
+
+def uebernehmen_branchenpaket(mandant_id: str, kennung: str) -> schemas.BranchenpaketUebernahmeResult:
+    """Kopiert atomar alle Startinhalte des gewählten Pakets in genau einen
+    Mandanten und schreibt die Paketkennung erst bei Gesamterfolg. Fehler führen
+    zum Rollback aller Kopien und der Mandantenfelder (ADR-14-3)."""
+    paket = branchenpakete.get_paket(kennung)
+    if paket is None:
+        raise ValidationError(
+            "Ungültiges Branchenpaket. Bitte wählen Sie „SHK“ oder „Entrümpelung“."
+        )
+    # Ausgelieferten Katalog vor Beginn vollständig validieren.
+    paket.validate()
+
+    # Invariante: bereits übernommen ODER irgendein Zielinhalt existiert -> 409.
+    bestehend = repo.get_mandant_paket(mandant_id)
+    if bestehend and bestehend.get("branchenpaket_kennung"):
+        raise ConflictError("Es wurde bereits ein Branchenpaket übernommen.")
+    if (repo.count_all_leistungen(mandant_id) > 0
+            or repo.count_preisliste(mandant_id) > 0
+            or _count_formulare(mandant_id) > 0):
+        raise ConflictError(
+            "Es existieren bereits Inhalte in diesem Betrieb. Eine Paketübernahme "
+            "wird nicht erneut gestartet und überschreibt keine Bestandsdaten."
+        )
+
+    from app.features.formulare import repository as formular_repo
+    vorlage = formular_repo.TEMPLATES[paket.formular_vorlage]
+
+    try:
+        with db.engine.transaction(mandant_id=mandant_id) as tx:
+            # 1) Leistungsseiten (ausschließlich dieser Pfad, ADR-14-2).
+            from app.features.website import repository as website_repo
+            website_repo.seed_leistungen(mandant_id, paket.leistungen, tx=tx)
+            # 2) Preisliste.
+            for p in paket.preisliste:
+                repo.create_preisliste_position(
+                    mandant_id, p["bezeichnung"], p["einheit"],
+                    p["netto_einzelpreis"], p["steuersatz"], tx=tx,
+                )
+            # 3) Formular-Startvorlage (eigene Kopie, kein öffentlicher Snapshot).
+            fid = formular_repo.create_formular(
+                mandant_id, vorlage["name"], vorlage["komplexitaet"], tx=tx)
+            formular_repo.seed_template_tx(mandant_id, fid, vorlage, tx)
+            # 4) Paketkennung erst jetzt schreiben.
+            repo.set_mandant_paket(mandant_id, paket.kennung, paket.version, tx=tx)
+    except Exception:
+        # Alles oder nichts: bei Fehler bleibt kein teilweise übernommener
+        # Paketbestand zurück.
+        raise
+
+    status = get_onboarding_status(mandant_id)
+    paket_row = repo.get_mandant_paket(mandant_id) or {}
+    return schemas.BranchenpaketUebernahmeResult(
+        kennung=paket.kennung, name=paket.name, version=paket.version,
+        uebernommen_am=paket_row.get("branchenpaket_uebernommen_am"),
+        onboarding_status=status,
+    )
+
+
+def _count_formulare(mandant_id: str) -> int:
+    from app.features.formulare import repository as formular_repo
+    return formular_repo.count_formulare(mandant_id)
 
 
 # --- Preisliste / Leistungskatalog (PROJ-7, Schritt 6) -------------------

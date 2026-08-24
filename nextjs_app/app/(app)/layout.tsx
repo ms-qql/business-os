@@ -115,6 +115,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="text-xs text-[var(--color-muted-foreground)]">
               {user.rolle} · {user.mandant_name}
             </div>
+            {user.paket_name ? (
+              <div
+                className="mt-1 text-xs font-medium text-[var(--color-foreground)]"
+                aria-label={`Übernommenes Branchenpaket: ${user.paket_name}`}
+              >
+                Paket: {user.paket_name}
+              </div>
+            ) : null}
           </div>
           <button
             onClick={onLogout}

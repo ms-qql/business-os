@@ -11,14 +11,9 @@ from app.features.website.schemas import AnfrageCreate, LeistungPatch
 from app.features.vorgaenge import service as vorgaenge_service
 from app import storage as storage_mod
 
-# Vordefinierter SHK-Leistungskatalog (fest laut Tech Design — kein Baukasten).
-SEED_LEISTUNGEN: list[tuple[str, str]] = [
-    ("heizung", "Heizungsinstallation & -wartung"),
-    ("sanitaer", "Sanitärinstallation"),
-    ("bad", "Badsanierung"),
-    ("notdienst", "Notdienst"),
-    ("energie", "Energieberatung"),
-]
+# Vordefinierter SHK-Leistungskatalog entfällt hier (PROJ-14): Leistungsseiten
+# werden ausschließlich aus dem gewählten Branchenpaket geschrieben, nicht
+# global geseedet. Die Paketkataloge leben in app.features.onboarding.branchenpakete.
 
 MAX_UPLOADS = repo.MAX_UPLOADS_PER_ANFRAGE
 MAX_BILD_BYTES = 8 * 1024 * 1024
@@ -65,7 +60,11 @@ def _get_or_create_settings(mandant_id: str) -> dict:
     row = repo.get_settings(mandant_id)
     if row is None:
         row = repo.create_default_settings(mandant_id)
-    repo.seed_leistungen(mandant_id, SEED_LEISTUNGEN)
+    # ADR-14-2 / PROJ-14-Website-Seed-Korrektur: dieser Lazy-Pfad ist NICHT
+    # länger Owner der Leistungsseiten. Er legt ausschließlich die leere
+    # website_settings-Zeile an. Leistungsseiten werden nur noch aus dem
+    # gewählten Branchenpaket via POST /onboarding/branchenpaket-uebernehmen
+    # geschrieben — ein Entrümpelungs-Mandant darf keine SHK-Seiten erben.
     return row
 
 

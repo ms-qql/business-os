@@ -128,18 +128,30 @@ def get_active_leistung(mandant_id: str, slug: str) -> dict | None:
     return rows[0] if rows else None
 
 
-def seed_leistungen(mandant_id: str, katalog: list[tuple[str, str]]) -> None:
-    existing = {row["slug"] for row in db.engine.query(
-        "SELECT slug FROM leistungsseite WHERE mandant_id = %s",
-        (mandant_id,), mandant_id=mandant_id,
-    )}
+def seed_leistungen(mandant_id: str, katalog: list[tuple[str, str]], tx=None) -> None:
+    if tx is None:
+        existing = {row["slug"] for row in db.engine.query(
+            "SELECT slug FROM leistungsseite WHERE mandant_id = %s",
+            (mandant_id,), mandant_id=mandant_id,
+        )}
+    else:
+        existing = {row["slug"] for row in tx.query(
+            "SELECT slug FROM leistungsseite WHERE mandant_id = %s",
+            (mandant_id,),
+        )}
     for slug, titel in katalog:
         if slug in existing:
             continue
-        db.engine.command(
-            "INSERT INTO leistungsseite (id, mandant_id, slug, titel) VALUES (%s, %s, %s, %s)",
-            (str(uuid.uuid4()), mandant_id, slug, titel), mandant_id=mandant_id,
-        )
+        if tx is None:
+            db.engine.command(
+                "INSERT INTO leistungsseite (id, mandant_id, slug, titel) VALUES (%s, %s, %s, %s)",
+                (str(uuid.uuid4()), mandant_id, slug, titel), mandant_id=mandant_id,
+            )
+        else:
+            tx.command(
+                "INSERT INTO leistungsseite (id, mandant_id, slug, titel) VALUES (%s, %s, %s, %s)",
+                (str(uuid.uuid4()), mandant_id, slug, titel),
+            )
 
 
 def patch_leistung(mandant_id: str, slug: str, aktiv: bool | None,
