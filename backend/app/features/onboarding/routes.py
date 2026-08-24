@@ -56,6 +56,20 @@ def post_veroeffentlichen(user: CurrentUser = Depends(_inhaber_rolle)):
     return result
 
 
+# --- Branchenpaket (PROJ-14) ---------------------------------------------
+
+@router.get("/branchenpakete", response_model=list[schemas.BranchenpaketOption])
+def get_branchenpakete(user: CurrentUser = Depends(_inhaber_rolle)):
+    return onboarding_service.list_branchenpakete()
+
+
+@router.post("/branchenpaket-uebernehmen",
+             response_model=schemas.BranchenpaketUebernahmeResult, status_code=201)
+def post_branchenpaket_uebernehmen(payload: schemas.BranchenpaketUebernahme,
+                                    user: CurrentUser = Depends(_inhaber_rolle)):
+    return onboarding_service.uebernehmen_branchenpaket(user.mandant_id, payload.kennung)
+
+
 # --- Preisliste / Leistungskatalog (Inhaber-only) ------------------------
 
 @katalog_router.get("", response_model=schemas.KatalogListe)

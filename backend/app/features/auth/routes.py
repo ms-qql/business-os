@@ -54,4 +54,5 @@ def me(user: CurrentUser = Depends(get_current_user)):
     return schemas.MeResponse(
         id=user.id, mandant_id=user.mandant_id, name=user.name,
         email=user.email, role=user.role, status=user.status,
+        paket_kennung=user.paket_kennung, paket_name=user.paket_name,
     )

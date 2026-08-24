@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import { getOnboarding, type OnboardingStatus } from "@/lib/api/onboarding";
 import { OnboardingFortschritt } from "@/components/onboarding/onboarding_fortschritt";
 import { Alert } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Rolle } from "@/lib/theme/tokens";
 
 /**
@@ -80,6 +81,8 @@ export default function OnboardingPage() {
     return <p className="text-sm text-[var(--color-muted-foreground)]">Wird geladen …</p>;
   }
 
+  const paket = status.paket_info ?? null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -89,6 +92,19 @@ export default function OnboardingPage() {
           berechnet — ein Schritt ist erst erledigt, wenn alle zugehörigen Angaben vorliegen.
         </p>
       </div>
+
+      {paket && (
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div className="text-xs font-medium text-[var(--color-muted-foreground)]">Branchenpaket</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="text-lg font-semibold text-[var(--color-foreground)]">{paket.name}</span>
+            <Badge variant="brand">Eingerichtet</Badge>
+          </div>
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+            Übernommen am {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "Europe/Berlin" }).format(new Date(paket.uebernommen_am))} · Version {paket.version}. Die Inhalte des Pakets sind im Betrieb frei bearbeitbar, die Paketwahl selbst ist nicht mehr änderbar.
+          </p>
+        </div>
+      )}
 
       <OnboardingFortschritt status={status} onChanged={laden} />
     </div>

@@ -37,12 +37,13 @@ class OnboardingTestvorgang(BaseModel):
 
 class OnboardingStatus(BaseModel):
     schritte: list[OnboardingSchritt]
-    veröffentlicht: bool
-    veröffentlicht_am: Optional[datetime | str] = None
+    veroeffentlicht: bool
+    veroeffentlicht_am: Optional[datetime | str] = None
     warnung: Optional[str] = None
     postfach_test: Optional[PostfachTestInfo] = None
     domain_status: Optional[str] = None
     testvorgang_id: Optional[str] = None
+    paket_info: Optional["BranchenpaketInfo"] = None
 
 
 # --- Domain-Reservierung / Veröffentlichung ------------------------------
@@ -59,7 +60,7 @@ class DomainReserveResponse(BaseModel):
 class VeroeffentlichenResult(BaseModel):
     ok: bool = True
     domain_status: str
-    veröffentlicht_am: Optional[datetime | str] = None
+    veroeffentlicht_am: Optional[datetime | str] = None
     fehlende_schritte: list[str] = Field(default_factory=list)
 
 
@@ -116,6 +117,33 @@ class KatalogImportResult(BaseModel):
     uebernommen: list[KatalogImportZeile]
     fehler: list[KatalogImportFehler]
     anzahl_uebernommen: int
+
+
+# --- Branchenpaket (PROJ-14) --------------------------------------------
+
+class BranchenpaketOption(BaseModel):
+    kennung: str
+    name: str
+    beschreibung: str
+
+
+class BranchenpaketUebernahme(BaseModel):
+    kennung: str
+
+
+class BranchenpaketUebernahmeResult(BaseModel):
+    kennung: str
+    name: str
+    version: int
+    uebernommen_am: str | None
+    onboarding_status: "OnboardingStatus"
+
+
+class BranchenpaketInfo(BaseModel):
+    kennung: str | None = None
+    name: str | None = None
+    version: int | None = None
+    uebernommen_am: str | None = None
 
 
 OnboardingSchritt.model_rebuild()

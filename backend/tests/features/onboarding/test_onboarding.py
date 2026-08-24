@@ -44,11 +44,12 @@ def test_status_alle_sieben_schritte(client, mandant):
     assert r.status_code == 200, r.text
     body = r.json()
     ids = [s["id"] for s in body["schritte"]]
-    assert ids == ["betriebsdaten", "branding", "leistungsseiten", "domain",
-                   "postfach", "preisliste", "testanfrage"]
+    # PROJ-14 fügt den Pflichtschritt "branchenpaket" hinzu.
+    assert ids == ["branchenpaket", "betriebsdaten", "branding", "leistungsseiten",
+                   "domain", "postfach", "preisliste", "testanfrage"]
     # Frisch: alles offen bzw. in_bearbeitung, keine erledigt.
     assert all(s["status"] != "erledigt" for s in body["schritte"])
-    assert body["veröffentlicht"] is False
+    assert body["veroeffentlicht"] is False
     # Jeder offene Schritt nennt konkret die fehlende Eingabe.
     for s in body["schritte"]:
         if s["status"] != "erledigt":
@@ -108,6 +109,11 @@ def test_domain_reserve_inaktiv(client, mandant):
 
 def test_veroeffentlichen_gate_alle_schritte(client, mandant):
     tok = _login(client, mandant, "inh@t.de")
+    # Branchenpaket übernehmen (neuer Pflichtschritt, PROJ-14) — ganz am Anfang.
+    r_paket = client.post("/onboarding/branchenpaket-uebernehmen",
+                          headers={"Authorization": f"Bearer {tok}"},
+                          json={"kennung": "shk"})
+    assert r_paket.status_code == 201, r_paket.text
     # Noch nicht alles erfüllt -> 409 mit konkreten Schritten.
     r = client.post("/onboarding/veroeffentlichen", headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 409, r.text
@@ -162,8 +168,8 @@ def test_veroeffentlichen_gate_alle_schritte(client, mandant):
     assert r.json()["domain_status"] == "aktiv"
     # Status danach: veröffentlicht.
     body = client.get("/onboarding", headers={"Authorization": f"Bearer {tok}"}).json()
-    assert body["veröffentlicht"] is True
-    assert body["veröffentlicht_am"] is not None
+    assert body["veroeffentlicht"] is True
+    assert body["veroeffentlicht_am"] is not None
 
 
 # --- Preisliste CRUD + CSV-Import -----------------------------------------

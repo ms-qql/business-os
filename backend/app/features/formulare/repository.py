@@ -64,19 +64,34 @@ TEMPLATES = {"shk": TEMPLATE_SHK, "entruempelung": TEMPLATE_ENTRUEMPELUNG}
 
 
 def _next_position(mandant_id: str, formular_id: str, tabelle: str,
-                   schritt_id: str | None = None) -> int:
+                   schritt_id: str | None = None, tx=None) -> int:
+    eng = tx if tx is not None else db.engine
     if tabelle == "formular_feld" and schritt_id:
-        rows = db.engine.query(
-            "SELECT COALESCE(MAX(position), 0) + 1 AS next FROM formular_feld "
-            "WHERE mandant_id = %s AND schritt_id = %s",
-            (mandant_id, schritt_id), mandant_id=mandant_id,
-        )
+        if tx is None:
+            rows = db.engine.query(
+                "SELECT COALESCE(MAX(position), 0) + 1 AS next FROM formular_feld "
+                "WHERE mandant_id = %s AND schritt_id = %s",
+                (mandant_id, schritt_id), mandant_id=mandant_id,
+            )
+        else:
+            rows = tx.query(
+                "SELECT COALESCE(MAX(position), 0) + 1 AS next FROM formular_feld "
+                "WHERE mandant_id = %s AND schritt_id = %s",
+                (mandant_id, schritt_id),
+            )
     else:
-        rows = db.engine.query(
-            "SELECT COALESCE(MAX(position), 0) + 1 AS next FROM formular_schritt "
-            "WHERE mandant_id = %s AND formular_id = %s",
-            (mandant_id, formular_id), mandant_id=mandant_id,
-        )
+        if tx is None:
+            rows = db.engine.query(
+                "SELECT COALESCE(MAX(position), 0) + 1 AS next FROM formular_schritt "
+                "WHERE mandant_id = %s AND formular_id = %s",
+                (mandant_id, formular_id), mandant_id=mandant_id,
+            )
+        else:
+            rows = tx.query(
+                "SELECT COALESCE(MAX(position), 0) + 1 AS next FROM formular_schritt "
+                "WHERE mandant_id = %s AND formular_id = %s",
+                (mandant_id, formular_id),
+            )
     return int(rows[0]["next"])
 
 
@@ -109,13 +124,20 @@ def list_formulare(mandant_id: str, limit: int, offset: int) -> tuple[list[dict]
     return rows, total
 
 
-def create_formular(mandant_id: str, name: str, komplexitaet: str) -> str:
+def create_formular(mandant_id: str, name: str, komplexitaet: str, tx=None) -> str:
     fid = str(uuid.uuid4())
-    db.engine.command(
-        "INSERT INTO formular (id, mandant_id, name, komplexitaet, draft_revision) "
-        "VALUES (%s, %s, %s, %s, 1)",
-        (fid, mandant_id, name, komplexitaet), mandant_id=mandant_id,
-    )
+    if tx is None:
+        db.engine.command(
+            "INSERT INTO formular (id, mandant_id, name, komplexitaet, draft_revision) "
+            "VALUES (%s, %s, %s, %s, 1)",
+            (fid, mandant_id, name, komplexitaet), mandant_id=mandant_id,
+        )
+    else:
+        tx.command(
+            "INSERT INTO formular (id, mandant_id, name, komplexitaet, draft_revision) "
+            "VALUES (%s, %s, %s, %s, 1)",
+            (fid, mandant_id, name, komplexitaet),
+        )
     return fid
 
 
@@ -125,6 +147,47 @@ def delete_formular(mandant_id: str, formular_id: str) -> None:
         "AND veroeffentlicht = FALSE AND aktuelle_version_id IS NULL",
         (mandant_id, formular_id), mandant_id=mandant_id,
     )
+
+
+def count_formulare(mandant_id: str) -> int:
+    rows = db.engine.query(
+        "SELECT COUNT(*) AS c FROM formular WHERE mandant_id = %s",
+        (mandant_id,), mandant_id=mandant_id,
+    )
+    return int(rows[0]["c"]) if rows else 0
+
+
+def seed_template_tx(mandant_id: str, formular_id: str, tpl: dict, tx) -> None:
+    """Transaktions-gebundenes Seeding einer Formularvorlage (analog zum
+    öffentlichen create_formular-Pfad, aber läuft innerhalb von ``tx`` statt
+    über die globale Engine — für die atomare Paketübernahme)."""
+    for s in tpl["schritte"]:
+        spos = _next_position(mandant_id, formular_id, "formular_schritt", tx=tx)
+        sid = str(uuid.uuid4())
+        tx.command(
+            "INSERT INTO formular_schritt (id, mandant_id, formular_id, position, titel) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (sid, mandant_id, formular_id, spos, s["titel"]),
+        )
+        for f in s["felder"]:
+            fpos = _next_position(mandant_id, formular_id, "formular_feld",
+                                  schritt_id=sid, tx=tx)
+            fid = str(uuid.uuid4())
+            tx.command(
+                "INSERT INTO formular_feld (id, mandant_id, formular_id, schritt_id, "
+                "position, typ, label, hilfetext, pflichtfeld, optional_in_einfach, "
+                "uebernahme) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (fid, mandant_id, formular_id, sid, fpos, f["typ"], f["label"],
+                 f.get("hilfetext"), f.get("pflichtfeld", False),
+                 f.get("optional_in_einfach", False), f.get("uebernahme")),
+            )
+            for i, opt in enumerate(f.get("optionen", []), start=1):
+                oid = str(uuid.uuid4())
+                tx.command(
+                    "INSERT INTO formular_option (id, mandant_id, formular_id, feld_id, "
+                    "position, label, wert) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (oid, mandant_id, formular_id, fid, i, opt["label"], opt["wert"]),
+                )
 
 
 def _bump_revision(mandant_id: str, formular_id: str, erwartet: int) -> dict:

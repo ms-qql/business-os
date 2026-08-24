@@ -14,7 +14,26 @@ export type OnboardingSchrittId =
   | "domain"
   | "postfach"
   | "preisliste"
-  | "testanfrage";
+  | "testanfrage"
+  | "branchenpaket";
+
+/** Feste Branchenpaket-Kennungen (PROJ-14, Tech Design Abschnitt API-Contracts). */
+export type BranchenpaketKennung = "shk" | "entruempelung";
+
+/** Nicht veränderbare Wahloption aus GET /onboarding/branchenpakete. */
+export interface BranchenpaketOption {
+  kennung: BranchenpaketKennung;
+  name: string;
+  beschreibung: string;
+}
+
+/** Schreibgeschützte Paketinfo nach erfolgreicher Übernahme (in GET /onboarding + GET /auth/me). */
+export interface BranchenpaketInfo {
+  kennung: BranchenpaketKennung;
+  name: string;
+  version: string;
+  uebernommen_am: string;
+}
 
 export interface OnboardingPostfachTest {
   imap_ok: boolean;
@@ -49,6 +68,8 @@ export interface OnboardingStatus {
   veroeffentlicht_am: string | null;
   /** Warnung, wenn eine bereits live Website einen Pflichtschritt verliert (nachträglich unvollständig). */
   warnung?: string | null;
+  /** Schreibgeschützte Paketkennzeichnung des Mandanten (PROJ-14). Nur nach Übernahme gesetzt. */
+  paket_info?: BranchenpaketInfo | null;
 }
 
 /** GET /onboarding — berechneter Fortschritt aller sieben Schritte. Inhaber-only. */
@@ -118,5 +139,37 @@ export function veroeffentlichen(): Promise<VeroeffentlichenResult> {
   return apiFetch<VeroeffentlichenResult>("/onboarding/veroeffentlichen", {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+/**
+ * GET /onboarding/branchenpakete — liefert genau zwei nicht veränderbare
+ * Wahloptionen (shk, entruempelung). Inhaber-Wahlkarte ruft ihn vor der Auswahl.
+ * Keine Versions- oder Seed-Details im Browser.
+ */
+export function getBranchenpakete(): Promise<{ pakete: BranchenpaketOption[] }> {
+  return apiFetch<{ pakete: BranchenpaketOption[] }>("/onboarding/branchenpakete");
+}
+
+export interface BranchenpaketUebernahmeResult {
+  kennung: BranchenpaketKennung;
+  name: string;
+  version: string;
+  uebernommen_am: string;
+  onboarding_status: OnboardingStatus;
+}
+
+/**
+ * POST /onboarding/branchenpaket-uebernehmen — nimmt nur `kennung` an und kopiert
+ * atomar alle Zielinhalte in genau einen Mandanten. Liefert die Paketinfo plus den
+ * aktualisierten Onboarding-Status. Ungültiger/defekter Katalog: 422; bereits
+ * übernommenes/nicht leeres Ziel: 409. Inhaber-only, einmalig.
+ */
+export function uebernehmeBranchenpaket(
+  kennung: BranchenpaketKennung,
+): Promise<BranchenpaketUebernahmeResult> {
+  return apiFetch<BranchenpaketUebernahmeResult>("/onboarding/branchenpaket-uebernehmen", {
+    method: "POST",
+    body: JSON.stringify({ kennung }),
   });
 }

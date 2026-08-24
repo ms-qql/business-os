@@ -1,5 +1,11 @@
 from app import db
-from conftest import make_domain, make_mandant
+from conftest import make_domain, make_mandant, make_user
+
+
+def _login(client, mandant, email, role="Inhaber"):
+    make_user(mandant, email, role)
+    r = client.post("/auth/login", json={"email": email, "password": "startpasswort123"})
+    return r.json()["access_token"]
 
 
 def _tiny_png() -> bytes:
@@ -18,12 +24,22 @@ def test_public_site_unknown_domain_is_404(client):
 def test_public_site_returns_settings_and_active_leistungen(client):
     mandant = make_mandant()
     make_domain(mandant, "shk-mueller.de")
-
-    # Erstzugriff legt Settings + Leistungskatalog automatisch an.
+    tok = _login(client, mandant, "inh@shk.de", "Inhaber")
+    # Leistungsseiten entstehen aus dem Branchenpaket (PROJ-14), nicht mehr
+    # global beim ersten Seitenzugriff.
     r = client.get("/public/site", headers={"Host": "shk-mueller.de"})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["leistungen"] == []  # alle Leistungen starten inaktiv
+    assert body["leistungen"] == []  # noch keine Übernahme
+
+    # Paket übernehmen -> Leistungen vorhanden (aber inaktiv).
+    r_p = client.post("/onboarding/branchenpaket-uebernehmen",
+                      headers={"Authorization": f"Bearer {tok}"},
+                      json={"kennung": "shk"})
+    assert r_p.status_code == 201, r_p.text
+    r2 = client.get("/public/site", headers={"Host": "shk-mueller.de"})
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["leistungen"] == []  # alle Leistungen starten inaktiv
 
     # Eine Leistung aktivieren -> erscheint öffentlich.
     row = db.engine.query(
@@ -33,8 +49,8 @@ def test_public_site_returns_settings_and_active_leistungen(client):
         "UPDATE leistungsseite SET aktiv = 1 WHERE mandant_id = %s AND slug = %s",
         (mandant, row["slug"]),
     )
-    r2 = client.get("/public/site", headers={"Host": "shk-mueller.de"})
-    slugs = {l["slug"] for l in r2.json()["leistungen"]}
+    r3 = client.get("/public/site", headers={"Host": "shk-mueller.de"})
+    slugs = {l["slug"] for l in r3.json()["leistungen"]}
     assert row["slug"] in slugs
 
 
