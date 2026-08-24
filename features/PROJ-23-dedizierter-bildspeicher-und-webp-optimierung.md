@@ -2,7 +2,7 @@
 
 ## Status: Approved
 **Created:** 2026-08-23
-**Last Updated:** 2026-08-23 (QA-Re-Test: READY)
+**Last Updated:** 2026-08-24 (Produktion nachgetestet)
 
 ## Dependencies
 - Requires: PROJ-2 — bestehende Website-, Branding- und Bild-Upload-Grundlage.
@@ -386,3 +386,21 @@ Keine. Owner-Check und Lesepfad-Check bestehen für jede Datenmodell-Zeile.
 
 ## Deployment
 _To be added by /deploy_
+
+## Produktionsnachtrag 2026-08-24 — Bildanzeige über Mandantendomain
+
+Die Produktion hat zwei Routing-Fälle sichtbar gemacht, die in den bisherigen
+API-Tests nicht vorkamen:
+
+- Der Editor läuft auf der Betriebszentrale `bizos.app…`, die öffentliche
+  Bildroute löst den Mandanten aber über die Betriebsdomain auf. Der
+  Builder-Read liefert für eine aktive Domain deshalb die absolute URL
+  `https://{betriebsdomain}/public/sections/{section_id}/bild`; ohne aktive
+  Domain bleibt der relative Pfad für die lokale Entwicklung erhalten.
+- `proxy.ts` lässt `/public/*` wie `/api/*` durch und reicht den intern
+  bestätigten Original-Host weiter. Zuvor wurde der Bildpfad als öffentliche
+  Seite nach `/site/public/...` umgeschrieben und erreichte das Backend nicht.
+
+**Verifiziert:** Upload, Editor-Vorschau und öffentliche Landingpage zeigen
+das WebP direkt nach dem Upload; der Browser erhält weiterhin keinen direkten
+MinIO-Zugriff. Implementiert in `cf99be9` und `a69c438`.

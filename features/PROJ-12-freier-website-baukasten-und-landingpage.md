@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-08-21
-**Last Updated:** 2026-08-21
+**Last Updated:** 2026-08-24 (Bild-Upload speichert offenen Sektionsinhalt)
 
 ## Dependencies
 - Requires: PROJ-1 — Mandant und Inhaberzugriff.
@@ -27,6 +27,7 @@ ohne Layout oder HTML bearbeiten zu müssen.
 - [ ] Inhaber können eine Sektion aus den vorgegebenen Typen Hero, Text mit Bild, Leistungen, Kennzahlen, Ablauf, FAQ, Kontakt und CTA hinzufügen, entfernen, ein- oder ausblenden und frei sortieren.
 - [ ] Jede Sektion zeigt nur ihre passenden Eingabefelder; alle Textfelder erlauben leere, kurze und lange Inhalte, ohne Überlauf, abgeschnittenen Text oder überlappende Bedienelemente auf Desktop und ab 375 px Breite.
 - [ ] Bilder können für Hero- und Bildsektionen hochgeladen, ersetzt und entfernt werden; ohne Bild bleibt jede Sektion als gestaltete Textvariante nutzbar.
+- [ ] Werden Titel, Text, Sichtbarkeit oder CTA-Felder einer bildfähigen Sektion vor dem Bild-Upload geändert, speichert der Upload diese offenen Inhaltsänderungen zuerst; der anschließende Bild-Upload verwendet den neuen Versionsstand und überschreibt keine Eingabe.
 - [ ] Das Hero enthält ein Kurzformular mit Name und mindestens einem Kontaktweg; nach gültiger Eingabe werden die Werte an das vorhandene vollständige Anfrageformular übergeben.
 - [ ] Die Eingaben des Kurzformulars werden erst durch das bestehende vollständige Formular als Anfrage gespeichert; ein Abbruch erzeugt keinen Vorgang.
 - [ ] Die Leistungssektion verwendet die in PROJ-2 gepflegten aktiven Leistungen und zeigt bei keiner aktiven Leistung eine editierbare, neutrale Leerzustandsvariante statt eines defekten Rasters.
@@ -38,6 +39,7 @@ ohne Layout oder HTML bearbeiten zu müssen.
 - Ein versehentlich gelöschter oder ausgeblendeter Hero lässt die Startseite mit den verbleibenden sichtbaren Sektionen nutzbar; es gibt keinen leeren oder fehlerhaften Seitenzustand.
 - Sehr lange Überschriften, Fließtexte, CTA-Texte oder Leistungsnamen umbrechen responsiv und behalten ausreichende Abstände.
 - Ein Bild-Upload, der die bestehenden Größen- oder Formatgrenzen nicht erfüllt, wird mit deutscher Meldung abgewiesen und ersetzt das bisherige Bild nicht.
+- Nach einem erfolgreichen Bild-Upload mit vorher offenen Inhaltsänderungen bestätigt der Editor, dass der Inhalt bereits mitgespeichert wurde; der deaktivierte Button „Inhalt speichern“ bedeutet dann korrekt, dass keine offene Änderung mehr besteht.
 - Wird ein Bild entfernt oder fehlt es, erscheinen weder ein defektes Bildsymbol noch eine Lücke, die die Lesereihenfolge stört.
 - Enthält das Kurzformular weder Telefonnummer noch E-Mail, wird es nicht weitergeleitet und erklärt, dass mindestens ein Kontaktweg erforderlich ist.
 - Nicht mehr vorhandene, deaktivierte oder fremde Leistungsseiten werden weder als Karte noch als Link veröffentlicht.
@@ -326,3 +328,18 @@ Hinweis: `backend/sql/009_rechnungen.sql` (PROJ-8, nicht PROJ-12) hat einen vorb
 
 ### Vorherige Deployments
 - 2026-08-22 · v0.1.9 — Frontend rebuilt from `main` after the section-switch editor fix. Production smoke test: `/website-builder` and `/api/health` return 200.
+
+### Produktionsnachtrag 2026-08-24 — Inhalte beim Bild-Upload erhalten
+
+**Bug:** Ein Bild-Upload ersetzte den lokalen Editorzustand durch den
+Server-Snapshot. Noch nicht gespeicherte Überschriften, Texte und CTA-Felder
+wirkten dadurch gelöscht.
+
+**Fix:** `SectionEditor` speichert bei offenem Inhalt zuerst diese Sektion,
+übernimmt die neue Landingpage-Version und startet danach den Bild-Upload. Die
+Antwort des Uploads wird erst anschließend als neuer Gesamtzustand verwendet.
+Eine deutsche Erfolgsmeldung erklärt den automatischen Save.
+
+**Regressionstest:** `section-editor.test.tsx` deckt den Ablauf „Titel/Text
+ändern → Bild wählen“ ab und prüft Save vor Upload mit der neuen Version;
+TypeScript-Check grün. Implementiert in `8fd8812` und `2b509dd`.
