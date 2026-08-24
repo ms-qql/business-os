@@ -29,6 +29,7 @@ import {
 import {
   FELDTYPEN,
   FELDTYP_LABELS,
+  hatOptionen,
   KOMPLEXITAET,
   KOMPLEXITAET_LABELS,
   type Einbindung,
@@ -206,7 +207,7 @@ export default function FormularEditorPage() {
           optional_in_einfach: erg.optional_in_einfach,
           config: erg.config,
           uebernahme: erg.uebernahme,
-          options: erg.options,
+          options: hatOptionen(feld.typ) ? erg.options : undefined,
         },
         draft!.draft_revision,
       ),

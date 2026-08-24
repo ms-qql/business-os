@@ -296,8 +296,8 @@ def add_feld(mandant_id: str, formular_id: str, schritt_id: str,
     fid = str(uuid.uuid4())
     db.engine.command(
         "INSERT INTO formular_feld (id, mandant_id, formular_id, schritt_id, "
-        "position, typ, label) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        (fid, mandant_id, formular_id, schritt_id, pos, typ, ""), mandant_id=mandant_id,
+        "position, typ, label, pflichtfeld) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (fid, mandant_id, formular_id, schritt_id, pos, typ, "", True), mandant_id=mandant_id,
     )
     return get_formular(mandant_id, formular_id)
 

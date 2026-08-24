@@ -130,6 +130,7 @@ def test_schritt_feld_lifecycle_und_revision(client):
                     json={"typ": "text", "draft_revision": rev2}, headers=h)
     assert r.status_code == 200
     feld_id = r.json()["schritte"][-1]["felder"][-1]["id"]
+    assert r.json()["schritte"][-1]["felder"][-1]["pflichtfeld"] is True
     rev3 = r.json()["draft_revision"]
 
     # Feld aktualisieren (Optionen nicht erlaubt bei text -> Validierung ok).

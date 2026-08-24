@@ -176,7 +176,7 @@ export function updateFeld(
       body: JSON.stringify({
         ...field,
         ...configToApi(config),
-        optionen: options,
+        ...(options === undefined ? {} : { optionen: options }),
         draft_revision: draftRevision,
       }),
     },
