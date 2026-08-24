@@ -18,7 +18,15 @@ _write = require_role("Inhaber", "Buero")
 _lesen = require_role("Inhaber", "Buero")
 
 
+def _trusted_proxy(request: Request) -> bool:
+    return bool(settings.internal_proxy_secret) and (
+        request.headers.get("x-internal-proxy-secret") == settings.internal_proxy_secret
+    )
+
+
 def _client_ip(request: Request) -> str | None:
+    if not _trusted_proxy(request):
+        return request.client.host if request.client else None
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
         return fwd.split(",")[0].strip()
@@ -26,10 +34,7 @@ def _client_ip(request: Request) -> str | None:
 
 
 def _hostname(request: Request) -> str:
-    trusted_proxy = bool(settings.internal_proxy_secret) and (
-        request.headers.get("x-internal-proxy-secret") == settings.internal_proxy_secret
-    )
-    fwd = request.headers.get("x-forwarded-host") if trusted_proxy else None
+    fwd = request.headers.get("x-forwarded-host") if _trusted_proxy(request) else None
     host = (fwd or request.headers.get("host") or "").split(",")[0].strip()
     return host.split(":")[0]
 

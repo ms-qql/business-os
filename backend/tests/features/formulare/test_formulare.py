@@ -3,8 +3,28 @@ from __future__ import annotations
 import pytest
 from datetime import datetime, timezone, timedelta
 
+from starlette.requests import Request
+
 from conftest import make_domain, make_mandant, make_user
 from app import db
+from app.config import settings
+from app.features.formulare.routes import _client_ip
+
+
+def _request(headers: list[tuple[bytes, bytes]], client_ip: str) -> Request:
+    return Request({"type": "http", "headers": headers, "client": (client_ip, 1234)})
+
+
+def test_rate_limit_ip_ignores_untrusted_forwarded_for(monkeypatch):
+    monkeypatch.setattr(settings, "internal_proxy_secret", "proxy-secret")
+    request = _request([(b"x-forwarded-for", b"203.0.113.7")], "198.51.100.9")
+    assert _client_ip(request) == "198.51.100.9"
+
+    trusted = _request(
+        [(b"x-forwarded-for", b"203.0.113.7"), (b"x-internal-proxy-secret", b"proxy-secret")],
+        "198.51.100.9",
+    )
+    assert _client_ip(trusted) == "203.0.113.7"
 
 
 def _auth_headers(client, mandant_id, email="buero@test.de", role="Buero"):
