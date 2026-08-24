@@ -48,9 +48,10 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
   );
 
   const optionDoppelteWerte = React.useMemo(() => {
-    const werte = options.map((o) => o.wert.trim()).filter(Boolean);
+    const werte = options.map((o) => optionswert(o.label)).filter(Boolean);
     return new Set(werte).size !== werte.length;
   }, [options]);
+  const optionLeer = options.some((option) => optionswert(option.label) === "");
 
   function emit() {
     onChange({
@@ -60,7 +61,7 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
       optional_in_einfach: optionalInEinfach,
       config,
       uebernahme,
-      options,
+      options: options.map((option) => ({ ...option, wert: optionswert(option.label) })),
     });
   }
 
@@ -144,25 +145,19 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
 
         {hatOptionen(feld.typ) && (
           <div>
-            <Label>Optionen (sichtbare Bezeichnung + gespeicherter Wert)</Label>
+            <Label>Optionen</Label>
+            <p className="mb-2 text-xs text-[var(--color-muted-foreground)]">
+              Jede Zeile ist eine auswählbare Kachel. Geben Sie nur den Text ein, den Kunden sehen sollen.
+            </p>
             <div className="space-y-2">
               {options.map((o, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <Input
-                    placeholder="Bezeichnung"
+                    placeholder="z. B. Haus"
                     value={o.label}
                     onChange={(e) => {
                       const next = [...options];
                       next[i] = { ...o, label: e.target.value };
-                      setOptions(next);
-                    }}
-                  />
-                  <Input
-                    placeholder="Wert"
-                    value={o.wert}
-                    onChange={(e) => {
-                      const next = [...options];
-                      next[i] = { ...o, wert: e.target.value };
                       setOptions(next);
                     }}
                   />
@@ -187,9 +182,11 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
             >
               <Plus size={14} /> Option
             </Button>
-            {optionDoppelteWerte && (
+            {(optionDoppelteWerte || optionLeer) && (
               <Alert variant="danger" className="mt-2">
-                Zwei Optionen haben denselben Wert. Jeder Wert muss eindeutig sein.
+                {optionLeer
+                  ? "Jede Option braucht eine Bezeichnung."
+                  : "Zwei Optionen haben dieselbe Bezeichnung. Jede Bezeichnung muss eindeutig sein."}
               </Alert>
             )}
           </div>
@@ -201,7 +198,7 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
           </Button>
           <Button
             onClick={emit}
-            disabled={label.trim() === "" || optionDoppelteWerte}
+            disabled={label.trim() === "" || optionDoppelteWerte || optionLeer}
           >
             Übernehmen
           </Button>
@@ -209,6 +206,12 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
       </CardContent>
     </Card>
   );
+}
+
+function optionswert(label: string): string {
+  return label.trim().toLocaleLowerCase("de-DE")
+    .replaceAll("ä", "ae").replaceAll("ö", "oe").replaceAll("ü", "ue").replaceAll("ß", "ss")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function TypKonfiguration({

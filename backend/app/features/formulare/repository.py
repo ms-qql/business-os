@@ -119,6 +119,14 @@ def create_formular(mandant_id: str, name: str, komplexitaet: str) -> str:
     return fid
 
 
+def delete_formular(mandant_id: str, formular_id: str) -> None:
+    db.engine.command(
+        "DELETE FROM formular WHERE mandant_id = %s AND id = %s "
+        "AND veroeffentlicht = FALSE AND aktuelle_version_id IS NULL",
+        (mandant_id, formular_id), mandant_id=mandant_id,
+    )
+
+
 def _bump_revision(mandant_id: str, formular_id: str, erwartet: int) -> dict:
     """Erhöht draft_revision atomar, wenn sie dem erwarteten Wert entspricht.
 

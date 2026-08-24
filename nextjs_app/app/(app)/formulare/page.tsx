@@ -3,13 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, FileText, Globe, EyeOff } from "lucide-react";
+import { Plus, FileText, Globe, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert } from "@/components/ui/label";
 import { ApiError } from "@/lib/api/client";
 import {
   createFormular,
+  deleteFormular,
   getFormulare,
   isFormularConflict,
 } from "@/lib/api/formulare";
@@ -51,6 +52,17 @@ export default function FormularePage() {
     }
   }
 
+  async function loeschen(id: string, name: string) {
+    if (!window.confirm(`Entwurf „${name}“ wirklich löschen?`)) return;
+    setError(null);
+    try {
+      await deleteFormular(id);
+      setItems((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Löschen fehlgeschlagen.");
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-[var(--color-muted-foreground)]">Wird geladen …</p>;
   }
@@ -89,8 +101,8 @@ export default function FormularePage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((f) => (
-            <Link key={f.id} href={`/formulare/editor/${f.id}`} className="block">
-              <Card className="h-full transition-colors hover:border-[var(--color-brand)]">
+            <Card key={f.id} className="h-full transition-colors hover:border-[var(--color-brand)]">
+              <Link href={`/formulare/editor/${f.id}`} className="block">
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 font-medium">
@@ -113,8 +125,15 @@ export default function FormularePage() {
                       : `Entwurf · aktualisiert ${new Date(f.aktualisiert_am).toLocaleDateString("de-DE")}`}
                   </p>
                 </CardContent>
-              </Card>
-            </Link>
+              </Link>
+              {!f.veroeffentlicht && (
+                <div className="px-4 pb-4">
+                  <Button variant="outline" size="sm" onClick={() => void loeschen(f.id, f.name)}>
+                    <Trash2 size={14} /> Entwurf löschen
+                  </Button>
+                </div>
+              )}
+            </Card>
           ))}
         </div>
       )}

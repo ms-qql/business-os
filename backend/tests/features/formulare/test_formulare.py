@@ -92,6 +92,21 @@ def test_liste_limit_offset(client):
     assert len(r.json()["items"]) == 2
 
 
+def test_nie_veroeffentlichten_entwurf_loeschen(client):
+    m = make_mandant()
+    h = _auth_headers(client, m)
+    f = client.post("/formulare", json={}, headers=h).json()
+
+    r = client.delete(f"/formulare/{f['id']}", headers=h)
+    assert r.status_code == 204
+    assert client.get("/formulare", headers=h).json()["total"] == 0
+
+    published = _create_shk(client, h)
+    _publish(client, h, published["id"], published["draft_revision"])
+    r = client.delete(f"/formulare/{published['id']}", headers=h)
+    assert r.status_code == 422
+
+
 # --- Draft-Mutationen + Revision -------------------------------------------
 
 

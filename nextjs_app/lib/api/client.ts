@@ -39,9 +39,12 @@ async function request<T>(
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    const message =
-      (data && (data.detail as string)) ||
-      `Anfrage fehlgeschlagen (${res.status}).`;
+    const detail = data?.detail;
+    const message = typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item) => item?.msg).filter(Boolean).join(" ")
+        : `Anfrage fehlgeschlagen (${res.status}).`;
     throw new ApiError(res.status, message);
   }
   return data as T;

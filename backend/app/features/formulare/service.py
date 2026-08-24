@@ -136,6 +136,13 @@ def patch_formular(mandant_id: str, formular_id: str, payload: FormularPatch) ->
     return _entwurf_to_dict(mandant_id, updated)
 
 
+def delete_formular(mandant_id: str, formular_id: str) -> None:
+    formular = _require_formular(mandant_id, formular_id)
+    if formular["veroeffentlicht"] or formular["aktuelle_version_id"]:
+        raise ValidationError("Nur noch nie veröffentlichte Entwürfe können gelöscht werden.")
+    repo.delete_formular(mandant_id, formular_id)
+
+
 def add_schritt(mandant_id: str, formular_id: str, draft_revision: int) -> dict:
     _require_formular(mandant_id, formular_id)
     updated = repo.add_schritt(mandant_id, formular_id, draft_revision)

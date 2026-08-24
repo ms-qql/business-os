@@ -71,6 +71,10 @@ export function setKomplexitaet(
   }).then(mapDraft);
 }
 
+export function deleteFormular(id: string): Promise<void> {
+  return apiFetch<void>(`/formulare/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 // --- Schritte -------------------------------------------------------------
 
 export function addSchritt(

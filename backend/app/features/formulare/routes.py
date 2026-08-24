@@ -72,6 +72,11 @@ def patch_formular(formular_id: str, payload: schemas.FormularPatch,
         user.mandant_id, formular_id, payload))
 
 
+@formulare_router.delete("/{formular_id}", status_code=204)
+def delete_formular(formular_id: str, user: CurrentUser = Depends(_write)):
+    formular_service.delete_formular(user.mandant_id, formular_id)
+
+
 @formulare_router.post("/{formular_id}/schritte", response_model=schemas.FormularEntwurf)
 def add_schritt(formular_id: str, payload: schemas.SchrittCreate,
                user: CurrentUser = Depends(_write)):
