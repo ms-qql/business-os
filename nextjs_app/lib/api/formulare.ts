@@ -84,7 +84,7 @@ export function addSchritt(
 ): Promise<FormularDraft> {
   return apiFetch<RawFormularDraft>(
     `/formulare/${encodeURIComponent(id)}/schritte`,
-    { method: "POST", body: JSON.stringify({ draft_revision: draftRevision }) },
+    { method: "POST", body: JSON.stringify({ titel, draft_revision: draftRevision }) },
   ).then(mapDraft);
 }
 

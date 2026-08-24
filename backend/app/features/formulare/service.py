@@ -143,9 +143,9 @@ def delete_formular(mandant_id: str, formular_id: str) -> None:
     repo.delete_formular(mandant_id, formular_id)
 
 
-def add_schritt(mandant_id: str, formular_id: str, draft_revision: int) -> dict:
+def add_schritt(mandant_id: str, formular_id: str, titel: str, draft_revision: int) -> dict:
     _require_formular(mandant_id, formular_id)
-    updated = repo.add_schritt(mandant_id, formular_id, draft_revision)
+    updated = repo.add_schritt(mandant_id, formular_id, titel, draft_revision)
     if not updated:
         raise ConflictError("Das Formular wurde zwischenzeitlich geändert. Bitte neu laden.")
     return _entwurf_to_dict(mandant_id, updated)

@@ -118,11 +118,12 @@ def test_schritt_feld_lifecycle_und_revision(client):
     rev = f["draft_revision"]
 
     # Schritt hinzufügen.
-    r = client.post(f"/formulare/{fid}/schritte", json={"draft_revision": rev}, headers=h)
+    r = client.post(f"/formulare/{fid}/schritte", json={"titel": "Details", "draft_revision": rev}, headers=h)
     assert r.status_code == 200
     rev2 = r.json()["draft_revision"]
     assert rev2 == rev + 1
     schritt_id = r.json()["schritte"][-1]["id"]
+    assert r.json()["schritte"][-1]["titel"] == "Details"
 
     # Feld hinzufügen.
     r = client.post(f"/formulare/{fid}/schritte/{schritt_id}/felder",
@@ -153,7 +154,7 @@ def test_feld_optionen_validierung(client):
     f = _create_shk(client, h)
     fid = f["id"]
     # Neuen Schritt + Dropdown-Feld.
-    r = client.post(f"/formulare/{fid}/schritte", json={"draft_revision": f["draft_revision"]}, headers=h)
+    r = client.post(f"/formulare/{fid}/schritte", json={"titel": "Auswahl", "draft_revision": f["draft_revision"]}, headers=h)
     schritt_id = r.json()["schritte"][-1]["id"]
     rev = r.json()["draft_revision"]
     r = client.post(f"/formulare/{fid}/schritte/{schritt_id}/felder",
@@ -185,7 +186,7 @@ def test_reorder_schritte(client):
     h = _auth_headers(client, m)
     f = _create_shk(client, h)
     fid = f["id"]
-    r = client.post(f"/formulare/{fid}/schritte", json={"draft_revision": f["draft_revision"]}, headers=h)
+    r = client.post(f"/formulare/{fid}/schritte", json={"titel": "Weitere Angaben", "draft_revision": f["draft_revision"]}, headers=h)
     rev = r.json()["draft_revision"]
     ids = [s["id"] for s in r.json()["schritte"]]
     # umdrehen
@@ -234,7 +235,7 @@ def test_publish_ohne_consent_abgelehnt(client):
     fid = r.json()["id"]
     rev = r.json()["draft_revision"]
     # Schritt + Feld (text, pflicht) + Schritt + Consent (nicht pflicht).
-    r = client.post(f"/formulare/{fid}/schritte", json={"draft_revision": rev}, headers=h)
+    r = client.post(f"/formulare/{fid}/schritte", json={"titel": "Zusatz", "draft_revision": rev}, headers=h)
     sid = r.json()["schritte"][-1]["id"]
     rev = r.json()["draft_revision"]
     r = client.post(f"/formulare/{fid}/schritte/{sid}/felder",
@@ -323,7 +324,7 @@ def test_public_upload_magicbytes_und_typ(client):
         r = client.post("/formulare", json={}, headers=h)
         fid2 = r.json()["id"]
         rev = r.json()["draft_revision"]
-        r = client.post(f"/formulare/{fid2}/schritte", json={"draft_revision": rev}, headers=h)
+        r = client.post(f"/formulare/{fid2}/schritte", json={"titel": "Upload", "draft_revision": rev}, headers=h)
         sid = r.json()["schritte"][-1]["id"]
         rev = r.json()["draft_revision"]
         r = client.post(f"/formulare/{fid2}/schritte/{sid}/felder",

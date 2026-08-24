@@ -81,7 +81,7 @@ def delete_formular(formular_id: str, user: CurrentUser = Depends(_write)):
 def add_schritt(formular_id: str, payload: schemas.SchrittCreate,
                user: CurrentUser = Depends(_write)):
     return schemas.FormularEntwurf(**formular_service.add_schritt(
-        user.mandant_id, formular_id, payload.draft_revision))
+        user.mandant_id, formular_id, payload.titel, payload.draft_revision))
 
 
 @formulare_router.patch("/{formular_id}/schritte/{schritt_id}", response_model=schemas.FormularEntwurf)

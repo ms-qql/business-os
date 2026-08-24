@@ -197,7 +197,7 @@ def list_schritte(mandant_id: str, formular_id: str) -> list[dict]:
     )
 
 
-def add_schritt(mandant_id: str, formular_id: str, erwartet: int) -> dict | None:
+def add_schritt(mandant_id: str, formular_id: str, titel: str, erwartet: int) -> dict | None:
     updated = _bump_revision(mandant_id, formular_id, erwartet)
     if not updated:
         return None
@@ -212,7 +212,7 @@ def add_schritt(mandant_id: str, formular_id: str, erwartet: int) -> dict | None
     db.engine.command(
         "INSERT INTO formular_schritt (id, mandant_id, formular_id, position, titel) "
         "VALUES (%s, %s, %s, %s, %s)",
-        (sid, mandant_id, formular_id, pos, ""), mandant_id=mandant_id,
+        (sid, mandant_id, formular_id, pos, titel), mandant_id=mandant_id,
     )
     return get_formular(mandant_id, formular_id)
 

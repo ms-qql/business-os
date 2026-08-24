@@ -46,6 +46,7 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
   const [options, setOptions] = React.useState(
     feld.options.map((o) => ({ label: o.label, wert: o.wert })),
   );
+  const [optionenGeprueft, setOptionenGeprueft] = React.useState(false);
 
   const optionDoppelteWerte = React.useMemo(() => {
     const werte = options.map((o) => optionswert(o.label)).filter(Boolean);
@@ -54,6 +55,10 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
   const optionLeer = options.some((option) => optionswert(option.label) === "");
 
   function emit() {
+    if (optionLeer) {
+      setOptionenGeprueft(true);
+      return;
+    }
     onChange({
       label,
       hilfetext,
@@ -176,13 +181,14 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
               variant="outline"
               size="sm"
               className="mt-2"
-              onClick={() =>
-                setOptions([...options, { label: "", wert: "" }])
-              }
+              onClick={() => {
+                setOptionenGeprueft(false);
+                setOptions([...options, { label: "", wert: "" }]);
+              }}
             >
               <Plus size={14} /> Option
             </Button>
-            {(optionDoppelteWerte || optionLeer) && (
+            {(optionDoppelteWerte || (optionLeer && optionenGeprueft)) && (
               <Alert variant="danger" className="mt-2">
                 {optionLeer
                   ? "Jede Option braucht eine Bezeichnung."
@@ -198,7 +204,7 @@ export function FeldEditor({ feld, onChange, onAbbrechen }: FeldEditorProps) {
           </Button>
           <Button
             onClick={emit}
-            disabled={label.trim() === "" || optionDoppelteWerte || optionLeer}
+            disabled={label.trim() === "" || optionDoppelteWerte}
           >
             Übernehmen
           </Button>
