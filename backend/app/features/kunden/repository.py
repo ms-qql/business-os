@@ -74,11 +74,16 @@ def find_moegliche_duplikate(mandant_id: str, email: str | None, telefon: str | 
 
 def create_kunde(mandant_id: str, name: str, email: str | None, telefon: str | None,
                  notiz: str | None) -> dict:
+    return create_kunde_status(mandant_id, name, email, telefon, notiz, "aktiv")
+
+
+def create_kunde_status(mandant_id: str, name: str, email: str | None, telefon: str | None,
+                        notiz: str | None, status: str) -> dict:
     kid = str(uuid.uuid4())
     db.engine.command(
-        "INSERT INTO kunde (id, mandant_id, name, email, telefon, notiz) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (kid, mandant_id, name, email, telefon, notiz), mandant_id=mandant_id,
+        "INSERT INTO kunde (id, mandant_id, name, email, telefon, notiz, status) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (kid, mandant_id, name, email, telefon, notiz, status), mandant_id=mandant_id,
     )
     return get_kunde(mandant_id, kid)
 
