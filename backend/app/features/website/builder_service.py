@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
 import uuid
 
-from app.errors import ConflictError, NotFoundError, ValidationError
+from PIL import Image, ImageOps
+
+from app.errors import ConflictError, NotFoundError, StorageError, ValidationError
 from app.features.website import builder_repository as repo
 from app.features.website import builder_schemas as sch
 from app.features.website.builder_schemas import (
@@ -16,6 +19,17 @@ from app import storage as storage_mod
 # Bildprüfung analog Logo/Anfragebild (Format/Magic Bytes, Größenlimit).
 MAX_SECTION_BILD_BYTES = 8 * 1024 * 1024
 BILD_ALLOWED_TYPEN = {"hero", "text_mit_bild"}
+
+# Feste Zielformate je Sektion (cover-crop, kein Verzerren) und WebP-Qualität.
+SECTION_BILD_ZIELFORMAT: dict[str, tuple[int, int]] = {
+    "hero": (1920, 1080),
+    "text_mit_bild": (1200, 900),
+}
+WEBP_QUALITY = 82
+SEKTIONS_LABEL: dict[str, str] = {
+    "hero": "Hero",
+    "text_mit_bild": "Text mit Bild",
+}
 
 # Die in den Akzeptanzkriterien genannten acht Defaultsektionen mit neutralen
 # Defaulttexten und sichtbarem Status (ein gelöschtes/ausgeblendetes Hero ist
@@ -55,6 +69,7 @@ def _public_bild(mandant_id: str, section: dict) -> BildRead | None:
     return BildRead(
         url=f"/public/sections/{section['id']}/bild",
         alt_text=bild["alt_text"] or "",
+        anzeigename=bild.get("anzeigename"),
     )
 
 
@@ -156,7 +171,7 @@ def delete_section(mandant_id: str, section_id: str, version: int) -> BuilderSta
     # MinIO-Objekt mitlöschen, falls vorhanden.
     bild = repo.get_bild(mandant_id, section_id)
     if bild:
-        _delete_object(bild["objektpfad"])
+        _delete_object(bild)
     repo.delete_bild(mandant_id, section_id)
     repo.delete_section(mandant_id, section_id)
     repo.bump_version(mandant_id, lp["id"], version)
@@ -175,19 +190,42 @@ def upload_section_bild(mandant_id: str, section_id: str, version: int,
         raise ValidationError(
             "Bilder sind nur für die Sektionstypen Hero und Text mit Bild erlaubt."
         )
-    ext = _sniff_image_ext(data)
-    if ext is None:
+    if _sniff_image_ext(data) is None:
         raise ValidationError("Nur Bilddateien (JPEG, PNG, GIF, WEBP) sind erlaubt.")
     if len(data) > MAX_SECTION_BILD_BYTES:
         raise ValidationError("Die Datei ist zu groß (maximal 8 MB).")
 
-    # Altes Bild erst nach erfolgreicher Prüfung ersetzen.
+    # Konvertierung/Zuschnitt vor jeder Schreiboperation — schlägt sie fehl,
+    # bleibt weder DB noch Speicher verändert (BUG-1).
+    webp_data = _to_webp(data, section["typ"])
+
+    inhalt = json.loads(section["inhalt"]) if isinstance(section["inhalt"], str) else section["inhalt"]
+    anzeigename = _eindeutiger_anzeigename(
+        mandant_id, _anzeigename_basis(section["typ"], inhalt), section_id
+    )
+
+    # Altes Bild erst nach erfolgreichem Schreiben des neuen ersetzen.
     old = repo.get_bild(mandant_id, section_id)
-    objektpfad = f"website-sections/{mandant_id}/{section_id}/{uuid.uuid4()}.{ext}"
-    storage_mod.storage.put_object(objektpfad, data, f"image/{ext if ext != 'jpg' else 'jpeg'}")
-    repo.upsert_bild(mandant_id, section_id, objektpfad, alt_text or "")
+    objektpfad = f"website-sections/{mandant_id}/{section_id}/{uuid.uuid4()}.webp"
+    try:
+        storage_mod.image_storage.put_object(objektpfad, webp_data, "image/webp")
+    except Exception as exc:
+        raise StorageError() from exc
+    if int(repo.get_landingpage(mandant_id)["version"]) != version:
+        _delete_object_from(storage_mod.image_storage, objektpfad)
+        _version_conflict()
+    try:
+        repo.upsert_bild(mandant_id, section_id, objektpfad, alt_text or "",
+                         speicher_backend="website_images", content_type="image/webp",
+                         anzeigename=anzeigename)
+    except Exception:
+        # Objekt bereits geschrieben, Metadaten aber nicht gespeichert: neues
+        # Objekt best-effort wieder entfernen, damit nichts Unreferenziertes
+        # ausgeliefert wird; alter Verweis bleibt unverändert bestehen.
+        _delete_object_from(storage_mod.image_storage, objektpfad)
+        raise
     if old:
-        _delete_object(old["objektpfad"])
+        _delete_object(old)
     repo.bump_version(mandant_id, lp["id"], version)
     return get_builder_state(mandant_id)
 
@@ -202,16 +240,22 @@ def delete_section_bild(mandant_id: str, section_id: str, version: int) -> Build
     bild = repo.get_bild(mandant_id, section_id)
     if not bild:
         raise NotFoundError("Diese Sektion hat kein Bild.")
-    _delete_object(bild["objektpfad"])
+    _delete_object(bild)
     repo.delete_bild(mandant_id, section_id)
     # Bildentfernung lässt die Textvariante intakt; Landingpage-Version erhöhen.
     repo.bump_version(mandant_id, lp["id"], version)
     return get_builder_state(mandant_id)
 
 
-def _delete_object(objektpfad: str) -> None:
+def _delete_object(bild: dict) -> None:
+    store = (storage_mod.image_storage if bild.get("speicher_backend") == "website_images"
+             else storage_mod.storage)
+    _delete_object_from(store, bild["objektpfad"])
+
+
+def _delete_object_from(store, objektpfad: str) -> None:
     try:
-        storage_mod.storage.delete_object(objektpfad)
+        store.delete_object(objektpfad)
     except Exception:
         # Best-Effort: ein nicht löschbares Objekt blockiert nicht den Verweis-Delete.
         pass
@@ -227,6 +271,71 @@ def _sniff_image_ext(data: bytes) -> str | None:
     if len(data) >= 12 and data[0:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
     return None
+
+
+def _to_webp(data: bytes, typ: str) -> bytes:
+    """Dekodiert, verwirft Animationen, schneidet unverzerrt (`cover`) auf das
+    feste Sektionsformat zu und kodiert als einzelnes WebP (Qualität 82).
+    Kleinere Quellbilder werden nicht künstlich hochskaliert (BUG-1)."""
+    target_w, target_h = SECTION_BILD_ZIELFORMAT[typ]
+    target_ratio = target_w / target_h
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception as exc:
+        raise ValidationError(
+            "Die Datei konnte nicht als Bild gelesen werden. Bitte ein gültiges "
+            "JPEG-, PNG-, GIF- oder WebP-Bild hochladen."
+        ) from exc
+    if getattr(img, "is_animated", False):
+        raise ValidationError(
+            "Animierte Bilder werden nicht unterstützt. Bitte ein Standbild hochladen."
+        )
+    img = ImageOps.exif_transpose(img) or img
+
+    src_w, src_h = img.size
+    src_ratio = src_w / src_h
+    if src_ratio > target_ratio:
+        new_w = max(1, round(src_h * target_ratio))
+        left = (src_w - new_w) // 2
+        img = img.crop((left, 0, left + new_w, src_h))
+    elif src_ratio < target_ratio:
+        new_h = max(1, round(src_w / target_ratio))
+        top = (src_h - new_h) // 2
+        img = img.crop((0, top, src_w, top + new_h))
+    if img.width > target_w:
+        img = img.resize((target_w, target_h), Image.LANCZOS)
+
+    if img.mode == "P":
+        img = img.convert("RGBA" if "transparency" in img.info else "RGB")
+    elif img.mode not in ("RGB", "RGBA", "L"):
+        img = img.convert("RGB")
+
+    try:
+        buf = io.BytesIO()
+        img.save(buf, format="WEBP", quality=WEBP_QUALITY)
+    except Exception as exc:
+        raise ValidationError(
+            "Das Bild konnte nicht verarbeitet werden. Bitte ein anderes Bild wählen."
+        ) from exc
+    return buf.getvalue()
+
+
+def _anzeigename_basis(typ: str, inhalt: dict) -> str:
+    label = SEKTIONS_LABEL.get(typ, typ)
+    titel = (inhalt.get("titel") or "").strip() if isinstance(inhalt, dict) else ""
+    if not titel:
+        return f"{label}-Bild"
+    return f"{label} – {titel}"
+
+
+def _eindeutiger_anzeigename(mandant_id: str, basis: str, section_id: str) -> str:
+    name = basis
+    n = 2
+    while repo.anzeigename_vergeben(mandant_id, name, section_id):
+        name = f"{basis} ({n})"
+        n += 1
+    return name
 
 
 # --- Öffentlich (kein Mandantenkontext bekannt) ---------------------------

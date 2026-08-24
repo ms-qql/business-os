@@ -15,7 +15,7 @@ import type {
  *
  * Vertrag (siehe builder_routes.py / builder_schemas.py):
  *  - DELETE /sections/{id}?version=…  (version als Query)
- *  - POST/DELETE /sections/{id}/bild?version=…&alt_text=…  (version als Query)
+ *  - POST/DELETE /sections/{id}/bild?version=…  (version als Query, alt_text im Formular)
  *  - PUT /sections/reihenfolge  Body: { version, ordered_ids: [...] } (nicht "ids")
  */
 
@@ -92,11 +92,11 @@ export function uploadSectionBild(
   altText: string,
   version: number,
 ): Promise<LandingpageState> {
-  const params = new URLSearchParams({ version: String(version), alt_text: altText });
   const form = new FormData();
   form.append("datei", datei);
+  form.append("alt_text", altText);
   return apiFetch<LandingpageState>(
-    `/website-builder/sections/${sectionId}/bild?${params.toString()}`,
+    `/website-builder/sections/${sectionId}/bild?version=${encodeURIComponent(String(version))}`,
     { method: "POST", body: form },
   );
 }

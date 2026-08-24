@@ -1,8 +1,8 @@
 # PROJ-23: Dedizierter Bildspeicher und WebP-Optimierung
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-08-23
-**Last Updated:** 2026-08-23 (QA: NOT READY, 3 High-Bugs)
+**Last Updated:** 2026-08-23 (QA-Re-Test: READY)
 
 ## Dependencies
 - Requires: PROJ-2 — bestehende Website-, Branding- und Bild-Upload-Grundlage.
@@ -335,6 +335,54 @@ Keine. Owner-Check und Lesepfad-Check bestehen für jede Datenmodell-Zeile.
 
 ### Produktionsreife-Empfehlung: **NOT READY**
 3 High-Bugs (BUG-1, BUG-2, BUG-3) blockieren Deployment. BUG-4 (Medium) und BUG-5 (Low) sollten mitgefixt bzw. dokumentiert werden.
+
+## QA Re-Test Results
+
+**Getestet:** 2026-08-23 · **Status: NOT READY**
+
+### Akzeptanzkriterien
+
+- [x] AC-1 bis AC-4: Neue Uploads werden als WebP im dedizierten Speicher abgelegt, über die Proxy-URL ausgeliefert und korrekt zugeschnitten.
+- [x] AC-5 Backend: Name aus Sektionsart/Überschrift, inklusive ` (2)`-Deduplizierung, wird gespeichert und geliefert.
+- [x] AC-6 bis AC-8: Legacy-Bilder bleiben lesbar; getrennte Storage-Konfiguration und deutscher 503 ohne Verweiswechsel sind verifiziert.
+- [ ] AC-5 Editor: `anzeigename` fehlt in Next.js-Typ und `SectionEditor`; der Name ist für Nutzer nicht sichtbar.
+
+### Edge Cases und Sicherheit
+
+- [x] Kleine Bilder werden nicht hochskaliert; animierte GIFs werden mit 422 abgelehnt.
+- [x] Auth, Inhaber-Rolle, Magic-Byte-Validierung und Tenant-Grenze sind durch Route/Tests abgesichert.
+- [ ] Ein paralleler Edit während der Bildverarbeitung wird nicht erneut gegen die Version geprüft.
+
+### Automatisierte Tests
+
+- Backend Website-Builder: **27 bestanden, 1 fehlgeschlagen** (der neue Konflikt-Test).
+- Next.js: **28 bestanden**; `npm run typecheck` erfolgreich.
+
+### Bugs
+
+| # | Schweregrad | Befund |
+|---|---|---|
+| BUG-6 | **High** | Ein Upload mit veralteter Version wird nach einem parallelen Edit mit 200 gespeichert, statt 409 zu liefern. Der fehlgeschlagene Test `test_upload_bild_rejects_version_changed_during_processing` belegt den überschriebenen Bildverweis. |
+| BUG-7 | **High** | `anzeigename` wird vom Backend geliefert, fehlt aber in `website-builder-types.ts` und `section-editor.tsx`; AC-5 ist im Editor nicht erfüllt. |
+| BUG-8 | **Medium** | `uploadSectionBild` sendet `alt_text` weiter als Query-Parameter, die Route erwartet es als Form-Feld. Das gespeicherte Alt-Attribut bleibt daher leer. |
+
+### Produktionsreife
+
+**NOT READY** — BUG-6 und BUG-7 vor Deployment beheben. BUG-8 im selben Frontend-Fix mitnehmen.
+
+## QA Final Re-Test
+
+**Getestet:** 2026-08-23 · **Status: READY**
+
+- [x] BUG-6: Der Upload prüft die Version nach der Verarbeitung erneut, löscht das neue Objekt bei Konflikt und liefert 409.
+- [x] BUG-7: Der Editor zeigt den vom Backend gelieferten Anzeigenamen.
+- [x] BUG-8: Der Client sendet `alt_text` im Multipart-Formular.
+- [x] Backend: vollständige Pytest-Suite grün.
+- [x] Next.js: 29 Tests, Typecheck und Production-Build grün.
+
+### Produktionsreife
+
+**READY** — keine offenen Critical- oder High-Bugs.
 
 ## Deployment
 _To be added by /deploy_

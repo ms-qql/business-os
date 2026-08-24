@@ -41,3 +41,8 @@ class ValidationError(AppError):
 class TooManyRequestsError(AppError):
     status = 429
     message = "Zu viele Anfragen. Bitte versuchen Sie es später erneut."
+
+
+class StorageError(AppError):
+    status = 503
+    message = "Der Dateispeicher ist aktuell nicht erreichbar. Bitte versuchen Sie es später erneut."

@@ -134,29 +134,46 @@ def delete_section(mandant_id: str, section_id: str) -> None:
 
 def get_bild(mandant_id: str, section_id: str) -> dict | None:
     rows = db.engine.query(
-        "SELECT id, mandant_id, section_id, objektpfad, alt_text FROM website_section_bild "
+        "SELECT id, mandant_id, section_id, objektpfad, alt_text, speicher_backend, "
+        "content_type, anzeigename FROM website_section_bild "
         "WHERE mandant_id = %s AND section_id = %s",
         (mandant_id, section_id), mandant_id=mandant_id,
     )
     return rows[0] if rows else None
 
 
-def upsert_bild(mandant_id: str, section_id: str, objektpfad: str, alt_text: str) -> dict:
+def upsert_bild(mandant_id: str, section_id: str, objektpfad: str, alt_text: str, *,
+                speicher_backend: str = "legacy", content_type: str | None = None,
+                anzeigename: str | None = None) -> dict:
     existing = get_bild(mandant_id, section_id)
     if existing:
         db.engine.command(
-            "UPDATE website_section_bild SET objektpfad = %s, alt_text = %s "
+            "UPDATE website_section_bild SET objektpfad = %s, alt_text = %s, "
+            "speicher_backend = %s, content_type = %s, anzeigename = %s "
             "WHERE mandant_id = %s AND section_id = %s",
-            (objektpfad, alt_text, mandant_id, section_id), mandant_id=mandant_id,
+            (objektpfad, alt_text, speicher_backend, content_type, anzeigename,
+             mandant_id, section_id), mandant_id=mandant_id,
         )
         return get_bild(mandant_id, section_id)
     bid = str(uuid.uuid4())
     db.engine.command(
-        "INSERT INTO website_section_bild (id, mandant_id, section_id, objektpfad, alt_text) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (bid, mandant_id, section_id, objektpfad, alt_text), mandant_id=mandant_id,
+        "INSERT INTO website_section_bild (id, mandant_id, section_id, objektpfad, alt_text, "
+        "speicher_backend, content_type, anzeigename) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (bid, mandant_id, section_id, objektpfad, alt_text, speicher_backend, content_type,
+         anzeigename), mandant_id=mandant_id,
     )
     return get_bild(mandant_id, section_id)
+
+
+def anzeigename_vergeben(mandant_id: str, anzeigename: str, exclude_section_id: str) -> bool:
+    """True, wenn ein ANDERES Bild dieses Mandanten bereits diesen Anzeigenamen
+    trägt (für die deterministische ` (2)`, ` (3)`-Deduplizierung)."""
+    rows = db.engine.query(
+        "SELECT 1 AS x FROM website_section_bild "
+        "WHERE mandant_id = %s AND anzeigename = %s AND section_id != %s",
+        (mandant_id, anzeigename, exclude_section_id), mandant_id=mandant_id,
+    )
+    return bool(rows)
 
 
 def delete_bild(mandant_id: str, section_id: str) -> None:

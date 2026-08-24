@@ -140,6 +140,11 @@ export function SectionEditor({ section, version, onSaveInhalt, onStateUpdate }:
                 alt={alt ?? ""}
                 className="h-16 w-auto rounded-[var(--radius-md)] border border-[var(--color-border)]"
               />
+              {section.bild?.anzeigename && (
+                <span className="text-xs text-[var(--color-muted-foreground)]">
+                  {section.bild.anzeigename}
+                </span>
+              )}
               <Button
                 type="button"
                 variant="ghost"

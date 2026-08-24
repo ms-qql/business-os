@@ -36,3 +36,19 @@ it("übernimmt beim Wechsel den Inhalt jedes Sektionstyps", () => {
     expect(screen.getByDisplayValue(inhalt.titel)).toBeInTheDocument();
   }
 });
+
+it("zeigt den Anzeigenamen eines Sektionsbilds", () => {
+  const withImage = {
+    ...section(inhalte[0]),
+    bild: { url: "/public/sections/hero/bild", alt_text: "Dach", anzeigename: "Hero – Dach" },
+  };
+  render(
+    <SectionEditor
+      section={withImage}
+      version={1}
+      onSaveInhalt={jest.fn().mockResolvedValue(undefined)}
+      onStateUpdate={jest.fn()}
+    />,
+  );
+  expect(screen.getByText("Hero – Dach")).toBeInTheDocument();
+});

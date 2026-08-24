@@ -224,8 +224,11 @@ CREATE TABLE website_section (
 CREATE TABLE website_section_bild (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, section_id TEXT NOT NULL UNIQUE,
     objektpfad TEXT NOT NULL, alt_text TEXT NOT NULL DEFAULT '',
+    speicher_backend TEXT NOT NULL DEFAULT 'legacy', content_type TEXT, anzeigename TEXT,
     created_at TEXT NOT NULL DEFAULT 'now'
 );
+CREATE UNIQUE INDEX idx_website_section_bild_anzeigename
+    ON website_section_bild (mandant_id, anzeigename) WHERE anzeigename IS NOT NULL;
 -- PROJ-13: Formular-Baukasten (Spiegel von sql/011_formular_baukasten.sql).
 CREATE TABLE formular (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT 'Neues Formular',
@@ -297,8 +300,10 @@ def engine():
 @pytest.fixture(autouse=True)
 def object_storage():
     storage.set_storage(InMemoryStorage())
+    storage.set_image_storage(InMemoryStorage())
     yield
     storage.set_storage(storage.MinioStorage())
+    storage.set_image_storage(storage.MinioStorage())
 
 
 def _iso():

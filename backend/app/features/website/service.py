@@ -124,8 +124,12 @@ def get_public_section_bild(hostname: str, section_id: str) -> tuple[bytes, str]
     bild = builder_repo.get_bild(mandant_id, section_id)
     if not bild:
         raise NotFoundError("Bild nicht gefunden.")
-    content_type = mimetypes.guess_type(bild["objektpfad"])[0] or "application/octet-stream"
-    return storage_mod.storage.get_object(bild["objektpfad"]), content_type
+    store = (storage_mod.image_storage if bild.get("speicher_backend") == "website_images"
+             else storage_mod.storage)
+    content_type = (bild.get("content_type")
+                    or mimetypes.guess_type(bild["objektpfad"])[0]
+                    or "application/octet-stream")
+    return store.get_object(bild["objektpfad"]), content_type
 
 
 def upload_anfrage_bild(hostname: str, ip: str | None, uebermittlungskennung: str,

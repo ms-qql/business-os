@@ -181,6 +181,7 @@ PublicSectionInhalt = Annotated[
 class BildRead(BaseModel):
     url: str
     alt_text: str = ""
+    anzeigename: Optional[str] = None
 
 
 class BuilderSectionRead(BaseModel):

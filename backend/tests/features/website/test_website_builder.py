@@ -1,12 +1,37 @@
-from app import db
+import io
+
+from PIL import Image
+
+from app import db, storage
 from conftest import make_domain, make_mandant, make_user
 
 
 def _tiny_png() -> bytes:
-    return bytes.fromhex(
-        "89504e470d0a1a0a0000000d49484452000000010000000108020000009077"
-        "53de0000000c4944415408d763f8cfc0000003010109dc7bfa0000000049454e44ae426082"
-    )
+    return _png(4, 4)
+
+
+def _png(width: int, height: int, color=(200, 50, 50)) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (width, height), color).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _animated_gif() -> bytes:
+    buf = io.BytesIO()
+    frames = [Image.new("RGB", (10, 10), c) for c in ((255, 0, 0), (0, 255, 0))]
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=100, loop=0)
+    return buf.getvalue()
+
+
+class _BrokenStorage(storage.BaseStorage):
+    def put_object(self, object_key, data, content_type):
+        raise RuntimeError("MinIO nicht erreichbar (simuliert)")
+
+    def get_object(self, object_key):
+        raise RuntimeError("MinIO nicht erreichbar (simuliert)")
+
+    def delete_object(self, object_key):
+        pass
 
 
 def _login(client, mandant, email, role="Inhaber"):
@@ -254,8 +279,7 @@ def test_public_section_bild_uses_same_origin_url(client, mandant):
 
     image = client.get(public_hero["bild"]["url"], headers={"Host": "shk-mueller.de"})
     assert image.status_code == 200
-    assert image.headers["content-type"] == "image/png"
-    assert image.content == _tiny_png()
+    assert image.headers["content-type"] == "image/webp"
 
 
 def test_upload_bild_rejects_non_image(client, mandant):
@@ -296,6 +320,181 @@ def test_owner_cannot_see_other_tenant_sections(client):
     rb = client.get("/website-builder/startseite", headers=_auth(tok_b))
     assert rb.status_code == 200
     assert rb.json()["sections"] == []
+
+
+# --- PROJ-23: WebP-Zuschnitt, Anzeigename, Fehlerbehandlung (BUG-1/2/3) ---
+
+def test_upload_bild_crops_to_fixed_section_ratio(client, mandant):
+    """BUG-1: das gespeicherte Bild wird verzerrungsfrei auf das feste
+    Seitenverhältnis der Sektion zugeschnitten, nicht nur kantenbegrenzt."""
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    r = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={init['version']}",
+        headers=_auth(tok),
+        files={"datei": ("breit.png", _png(3000, 2000), "image/png")},
+    )
+    assert r.status_code == 200, r.text
+
+    make_domain(mandant, "hero-crop.de")
+    site = client.get("/public/site", headers={"Host": "hero-crop.de"})
+    bild_url = next(s for s in site.json()["sections"] if s["typ"] == "hero")["bild"]["url"]
+    image = client.get(bild_url, headers={"Host": "hero-crop.de"})
+    assert image.headers["content-type"] == "image/webp"
+    img = Image.open(io.BytesIO(image.content))
+    assert img.size == (1920, 1080)
+
+
+def test_upload_bild_does_not_upscale_small_source(client, mandant):
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    text_bild = next(s for s in init["sections"] if s["typ"] == "text_mit_bild")
+    r = client.post(
+        f"/website-builder/sections/{text_bild['id']}/bild?version={init['version']}",
+        headers=_auth(tok),
+        files={"datei": ("klein.png", _png(80, 80), "image/png")},
+    )
+    assert r.status_code == 200, r.text
+
+    make_domain(mandant, "small-src.de")
+    site = client.get("/public/site", headers={"Host": "small-src.de"})
+    bild_url = next(s for s in site.json()["sections"] if s["typ"] == "text_mit_bild")["bild"]["url"]
+    image = client.get(bild_url, headers={"Host": "small-src.de"})
+    img = Image.open(io.BytesIO(image.content))
+    # 4:3-Zuschnitt aus 80x80 ohne Hochskalierung -> 80x60, nicht 1200x900.
+    assert img.size == (80, 60)
+
+
+def test_upload_bild_rejects_animated_gif(client, mandant):
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    r = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={init['version']}",
+        headers=_auth(tok),
+        files={"datei": ("anim.gif", _animated_gif(), "image/gif")},
+    )
+    assert r.status_code == 422, r.text
+    # Kein neuer Verweis: Sektion bleibt ohne Bild.
+    state = client.get("/website-builder/startseite", headers=_auth(tok)).json()
+    assert next(s for s in state["sections"] if s["id"] == hero["id"])["bild"] is None
+
+
+def test_upload_bild_assigns_unique_anzeigename(client, mandant):
+    """BUG-2: Anzeigename aus Sektionstyp + Überschrift, mandantenweit
+    eindeutig mit deterministischer ` (2)`-Deduplizierung."""
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    init = client.patch(
+        f"/website-builder/sections/{hero['id']}", headers=_auth(tok),
+        json={"version": init["version"], "inhalt": {**hero["inhalt"], "titel": "Dachsanierung"}},
+    ).json()
+    init = client.post(
+        "/website-builder/sections", headers=_auth(tok),
+        json={"type": "hero", "version": init["version"]},
+    ).json()
+    second_hero = init["sections"][-1]
+    init = client.patch(
+        f"/website-builder/sections/{second_hero['id']}", headers=_auth(tok),
+        json={"version": init["version"], "inhalt": {**second_hero["inhalt"], "titel": "Dachsanierung"}},
+    ).json()
+
+    r1 = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={init['version']}",
+        headers=_auth(tok), files={"datei": ("a.png", _png(100, 100), "image/png")},
+    )
+    assert r1.status_code == 200, r1.text
+    body1 = r1.json()
+    assert next(s for s in body1["sections"] if s["id"] == hero["id"])["bild"]["anzeigename"] \
+        == "Hero – Dachsanierung"
+
+    r2 = client.post(
+        f"/website-builder/sections/{second_hero['id']}/bild?version={body1['version']}",
+        headers=_auth(tok), files={"datei": ("b.png", _png(100, 100), "image/png")},
+    )
+    assert r2.status_code == 200, r2.text
+    body2 = r2.json()
+    assert (
+        next(s for s in body2["sections"] if s["id"] == second_hero["id"])["bild"]["anzeigename"]
+        == "Hero – Dachsanierung (2)"
+    )
+
+
+def test_upload_bild_default_anzeigename_uses_sektionsbezeichnung(client, mandant):
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    # Leere Überschrift -> Anzeigename fällt auf die Sektionsbezeichnung zurück.
+    patched = client.patch(
+        f"/website-builder/sections/{hero['id']}",
+        headers=_auth(tok),
+        json={"version": init["version"],
+              "inhalt": {**hero["inhalt"], "titel": ""}},
+    ).json()
+    r = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={patched['version']}",
+        headers=_auth(tok), files={"datei": ("a.png", _png(100, 100), "image/png")},
+    )
+    assert r.status_code == 200, r.text
+    bild = next(s for s in r.json()["sections"] if s["id"] == hero["id"])["bild"]
+    assert bild["anzeigename"] == "Hero-Bild"
+
+
+def test_upload_bild_storage_failure_returns_german_error_and_keeps_old_ref(client, mandant):
+    """BUG-3: ein Speicherfehler beim Upload darf keinen ungefangenen 500
+    erzeugen und darf den bestehenden Bildverweis nicht ändern."""
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    ok = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={init['version']}",
+        headers=_auth(tok), files={"datei": ("a.png", _png(100, 100), "image/png")},
+    )
+    assert ok.status_code == 200, ok.text
+    old_url = next(s for s in ok.json()["sections"] if s["id"] == hero["id"])["bild"]["url"]
+
+    storage.set_image_storage(_BrokenStorage())
+    try:
+        r = client.post(
+            f"/website-builder/sections/{hero['id']}/bild?version={ok.json()['version']}",
+            headers=_auth(tok), files={"datei": ("b.png", _png(100, 100), "image/png")},
+        )
+    finally:
+        from app.storage import InMemoryStorage
+        storage.set_image_storage(InMemoryStorage())
+
+    assert r.status_code == 503, r.text
+    assert "erreichbar" in r.json()["detail"]
+
+    state = client.get("/website-builder/startseite", headers=_auth(tok)).json()
+    assert next(s for s in state["sections"] if s["id"] == hero["id"])["bild"]["url"] == old_url
+
+
+def test_upload_bild_rejects_version_changed_during_processing(client, mandant, monkeypatch):
+    """Ein paralleler Edit während der Bildverarbeitung darf keinen
+    veralteten Bildverweis speichern."""
+    from app.features.website import builder_repository, builder_service
+
+    tok = _login(client, mandant, "inh@shk.de")
+    init = client.post("/website-builder/startseite/initialisieren", headers=_auth(tok)).json()
+    hero = next(s for s in init["sections"] if s["typ"] == "hero")
+    original_to_webp = builder_service._to_webp
+
+    def change_version_during_processing(data, typ):
+        builder_repository.bump_version(mandant, init["landingpage_id"], init["version"])
+        return original_to_webp(data, typ)
+
+    monkeypatch.setattr(builder_service, "_to_webp", change_version_during_processing)
+    r = client.post(
+        f"/website-builder/sections/{hero['id']}/bild?version={init['version']}",
+        headers=_auth(tok), files={"datei": ("hero.png", _png(100, 100), "image/png")},
+    )
+
+    assert r.status_code == 409, r.text
+    state = client.get("/website-builder/startseite", headers=_auth(tok)).json()
+    assert next(s for s in state["sections"] if s["id"] == hero["id"])["bild"] is None
 
 
 # --- Öffentlich: GET /public/site liefert nur sichtbare Sections ---------

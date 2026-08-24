@@ -108,6 +108,7 @@ export type SektionInhaltUnion =
 export interface BildRef {
   url: string;
   alt_text: string;
+  anzeigename?: string | null;
 }
 
 /** Eine vollständige Sektion für den Inhaber-Editor (GET /website-builder/startseite). */
