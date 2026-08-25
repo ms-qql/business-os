@@ -305,4 +305,19 @@ Fix-Vorschlag: Backend `list_kategorien` um `COUNT(gewerk.id)`-Join erweitern un
 **READY.** Alle 3 Bugs (1 Critical, 2 High) unabhängig verifiziert behoben, keine Regression, alle 9 Acceptance Criteria PASS. Feature kann zum Pre-Deploy-Gate weiter.
 
 ## Deployment
-_To be added by /abc-deploy_
+**Deployed:** 2026-08-25 · **Version:** 0.1.17-PROJ-22 · **Environment:** Production (Dokploy)
+**URL:** https://bizos.app.msce.info
+
+### Changes
+- Version bump from 0.1.16 to 0.1.17
+- All 3 QA-identified bugs verified fixed (BUG-1, BUG-2, BUG-3)
+- 9/9 Acceptance Criteria PASS
+- No regressions in backend suite (275/275 tests green)
+
+### Smoke-Test Checklist
+- [ ] `/api/health` returns 200 (same-origin proxy routing verified)
+- [ ] Login page renders in German
+- [ ] Kalkulationsseite (`/gewerke`) loads and displays
+- [ ] Create category → create gewerk with cost lines → calculate VK correctly
+- [ ] Override price from angebot position with reason → visible internally, not in PDF
+- [ ] No server errors in logs

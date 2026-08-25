@@ -15,7 +15,7 @@
 | PROJ-3 | Kunden, Objekte, Projekte und Dokumente | P0 | Deployed | PROJ-1 | Deployed 2026-08-17, v0.1.2 · biz.app.msce.info; QA bestanden 6/6 AC, Security-Audit ohne Befund, BUG-1 gefixt+retestet |
 | PROJ-4 | E-Mail-Inbox und Vorgangskommunikation | P0 | Approved | PROJ-1, PROJ-3 | IMAP/SMTP, MIME, Polling und Fehlerlogik extrahieren |
 | PROJ-5 | Angebote: Positionen, PDF, Freigabe und Versand | P0 | Deployed | PROJ-3, PROJ-4 | Versand- und Speicherpfade; Angebotslogik/PDF neu; Kalkulationsdetails siehe PROJ-22 |
-| PROJ-22 | Gewerke: Kalkulationseinheiten für Angebote (Lohn/Material/Fremdleistung, Zuschläge, Leistungskatalog) | P0 | In Review | PROJ-3, PROJ-5, PROJ-14 | Frontend+Backend fertig (Tests grün), QA läuft |
+| PROJ-22 | Gewerke: Kalkulationseinheiten für Angebote (Lohn/Material/Fremdleistung, Zuschläge, Leistungskatalog) | P0 | Deployed | PROJ-3, PROJ-5, PROJ-14 | Deployed 2026-08-25, v0.1.17 · bizos.app.msce.info; QA 9/9 AC |
 | PROJ-6 | Terminplanung und Teamzuweisung | P0 | Deployed | PROJ-3, PROJ-1 | Deployed 2026-08-18, v0.1.7 · biz.app.msce.info; QA bestanden 7/7 AC, Security-Audit ohne Befund, BUG-1 gefixt+retestet |
 | PROJ-7 | Begleitetes Onboarding: Betriebsdaten, Branding und Postfach | P0 | Deployed | PROJ-1, PROJ-2, PROJ-4, PROJ-5 | Deployed v0.1.8, 2026-08-19; Postfach-Tests und Settings als Vorlage |
 | PROJ-8 | PDF-Rechnungen und Rechnungsdokumente | P0 | Approved | PROJ-3, PROJ-5 | Speicher- und Versandpfade; Rechnungsvorlage neu; QA: READY (Bugfix verifiziert) |
