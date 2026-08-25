@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS gewerk_kostenzeile (
     gewerk_id UUID NOT NULL REFERENCES gewerk(id) ON DELETE CASCADE,
     kostenart TEXT NOT NULL
         CHECK (kostenart IN ('lohn', 'material', 'fremdleistung', 'sonstiges_geraete')),
+    beschreibung TEXT,
     menge NUMERIC(12, 3) NOT NULL CHECK (menge > 0),
     einheit TEXT NOT NULL,
     ek_einzelpreis NUMERIC(12, 2) NOT NULL CHECK (ek_einzelpreis > 0),

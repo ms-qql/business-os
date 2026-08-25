@@ -12,6 +12,7 @@ Kalkulationsart = Literal["je_einheit", "gesamtpreis"]
 
 class KostenzeileBase(BaseModel):
     kostenart: Kostenart
+    beschreibung: Optional[str] = None
     menge: float = Field(gt=0)
     einheit: str = Field(min_length=1)
     ek_einzelpreis: float = Field(gt=0)

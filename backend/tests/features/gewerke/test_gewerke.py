@@ -94,6 +94,16 @@ def test_gewerk_erstellen_und_vk_berechnung(client, mandant):
     assert round(lohn["vk_preis"], 2) == 89.0, lohn
 
 
+def test_gewerk_kostenzeile_beschreibung(client, mandant):
+    tok = _login(client, mandant, "b@t.de")
+    r = client.post("/gewerke", headers=_auth(tok), json=_make_gewerk_payload(
+        kostenzeilen=[{"kostenart": "lohn", "beschreibung": "Meister", "menge": 1,
+                        "einheit": "Stunde", "ek_einzelpreis": 70, "zuschlag_prozent": 0}],
+    ))
+    assert r.status_code == 201, r.text
+    assert r.json()["kostenzeilen"][0]["beschreibung"] == "Meister"
+
+
 def test_gewerk_duplikat_guard(client, mandant):
     tok = _login(client, mandant, "b@t.de")
     assert client.post("/gewerke", headers=_auth(tok), json=_make_gewerk_payload()).status_code == 201

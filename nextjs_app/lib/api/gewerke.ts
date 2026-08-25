@@ -29,6 +29,7 @@ export const KALKULATIONSART_LABELS: Record<GewerkKalkulationsart, string> = {
 export interface Kostenzeile {
   id: string;
   kostenart: Kostenart;
+  beschreibung: string | null;
   menge: number;
   einheit: string;
   ek_einzelpreis: number;
@@ -75,6 +76,7 @@ export interface GewerkListe {
 
 export interface KostenzeileInput {
   kostenart: Kostenart;
+  beschreibung?: string | null;
   menge: number;
   einheit: string;
   ek_einzelpreis: number;

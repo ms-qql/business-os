@@ -38,11 +38,13 @@ def gewerk_vk_preis(zeilen: list) -> float:
 def _zeile_read(z: dict) -> schemas.KostenzeileRead:
     return schemas.KostenzeileRead(
         id=z["id"], gewerk_id=z["gewerk_id"], kostenart=z["kostenart"],
+        beschreibung=z.get("beschreibung"),
         menge=float(z["menge"]), einheit=z["einheit"],
         ek_einzelpreis=float(z["ek_einzelpreis"]),
         zuschlag_prozent=float(z["zuschlag_prozent"]),
         vk_preis=_vk_zeile(schemas.KostenzeileBase(
-            kostenart=z["kostenart"], menge=float(z["menge"]), einheit=z["einheit"],
+            kostenart=z["kostenart"], beschreibung=z.get("beschreibung"),
+            menge=float(z["menge"]), einheit=z["einheit"],
             ek_einzelpreis=float(z["ek_einzelpreis"]),
             zuschlag_prozent=float(z["zuschlag_prozent"]),
         )),

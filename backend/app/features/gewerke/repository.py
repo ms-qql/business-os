@@ -193,7 +193,7 @@ def count_gewerke(mandant_id: str) -> int:
 # --- Kostenzeilen --------------------------------------------------------
 
 KOSTENZEILE_COLS = (
-    "id, mandant_id, gewerk_id, kostenart, menge, einheit, "
+    "id, mandant_id, gewerk_id, kostenart, beschreibung, menge, einheit, "
     "ek_einzelpreis, zuschlag_prozent, created_at, updated_at"
 )
 
@@ -207,14 +207,14 @@ def list_kostenzeilen(mandant_id: str, gewerk_id: str) -> list[dict]:
 
 
 def create_kostenzeile(mandant_id: str, gewerk_id: str, *, kostenart: str,
-                       menge: float, einheit: str, ek_einzelpreis: float,
+                       beschreibung: str | None, menge: float, einheit: str, ek_einzelpreis: float,
                        zuschlag_prozent: float) -> dict:
     kid = str(uuid.uuid4())
     db.engine.command(
-        "INSERT INTO gewerk_kostenzeile (id, mandant_id, gewerk_id, kostenart, "
+        "INSERT INTO gewerk_kostenzeile (id, mandant_id, gewerk_id, kostenart, beschreibung, "
         "menge, einheit, ek_einzelpreis, zuschlag_prozent) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-        (kid, mandant_id, gewerk_id, kostenart, menge, einheit, ek_einzelpreis,
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (kid, mandant_id, gewerk_id, kostenart, beschreibung, menge, einheit, ek_einzelpreis,
          zuschlag_prozent),
         mandant_id=mandant_id,
     )
@@ -249,10 +249,10 @@ def _replace_kostenzeilen_in(tx, mandant_id: str, gewerk_id: str, zeilen: list[d
     for z in zeilen:
         kid = str(uuid.uuid4())
         tx.command(
-            "INSERT INTO gewerk_kostenzeile (id, mandant_id, gewerk_id, kostenart, "
+            "INSERT INTO gewerk_kostenzeile (id, mandant_id, gewerk_id, kostenart, beschreibung, "
             "menge, einheit, ek_einzelpreis, zuschlag_prozent) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            (kid, mandant_id, gewerk_id, z["kostenart"], z["menge"], z["einheit"],
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (kid, mandant_id, gewerk_id, z["kostenart"], z.get("beschreibung"), z["menge"], z["einheit"],
              z["ek_einzelpreis"], z["zuschlag_prozent"]),
         )
         rows = tx.query(

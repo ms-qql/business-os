@@ -167,7 +167,7 @@ CREATE TABLE gewerk (
 );
 CREATE TABLE gewerk_kostenzeile (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, gewerk_id TEXT NOT NULL,
-    kostenart TEXT NOT NULL, menge REAL NOT NULL, einheit TEXT NOT NULL,
+    kostenart TEXT NOT NULL, beschreibung TEXT, menge REAL NOT NULL, einheit TEXT NOT NULL,
     ek_einzelpreis REAL NOT NULL, zuschlag_prozent REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );

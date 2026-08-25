@@ -295,6 +295,7 @@ export default function GewerkePage() {
                   <thead className="bg-[var(--color-surface-muted)] text-left text-xs font-medium text-[var(--color-muted-foreground)]">
                     <tr>
                       <th className="px-3 py-2">Kostenart</th>
+                      <th className="px-3 py-2">Beschreibung</th>
                       <th className="px-3 py-2 text-right">Menge</th>
                       <th className="px-3 py-2">Einheit</th>
                       <th className="px-3 py-2 text-right">EK €</th>
@@ -306,6 +307,7 @@ export default function GewerkePage() {
                     {detail.kostenzeilen.map((z) => (
                       <tr key={z.id} className="border-t border-[var(--color-border)]">
                         <td className="px-3 py-2">{z.kostenart}</td>
+                        <td className="px-3 py-2">{z.beschreibung || "—"}</td>
                         <td className="px-3 py-2 text-right">{z.menge}</td>
                         <td className="px-3 py-2">{z.einheit}</td>
                         <td className="px-3 py-2 text-right">{formatEuro(z.ek_einzelpreis)}</td>

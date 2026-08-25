@@ -22,6 +22,24 @@ import {
 } from "@/lib/api/gewerke";
 
 const SERVER_FEHLER = "Keine Verbindung zum Server. Änderungen wurden nicht gespeichert.";
+const EINHEITEN = ["Stunde", "Stück", "Euro", "laufender Meter", "Quadratmeter", "Kubikmeter", "Pauschale", "Sonstige"];
+
+function DezimalInput({ value, onChange, ...props }: Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type"> & {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const [text, setText] = React.useState(value ? String(value) : "");
+  return <Input {...props} type="text" inputMode="decimal" value={text} onChange={(e) => {
+    const next = e.target.value;
+    if (!/^\d*([,.]\d*)?$/.test(next)) return;
+    setText(next);
+    if (!next) onChange(0);
+    else {
+      const parsed = Number(next.replace(",", "."));
+      if (Number.isFinite(parsed)) onChange(parsed);
+    }
+  }} />;
+}
 
 /** Spiegelt die serverseitige Regel VK = EK + (EK × Zuschlag/100) auf 2 Nachkommastellen. */
 function zeilenVk(ek: number, menge: number, zuschlag: number): number {
@@ -40,6 +58,7 @@ function gewerkPreis(zeilen: KostenzeileInput[]): number {
 function neueZeile(): KostenzeileInput {
   return {
     kostenart: "lohn",
+    beschreibung: "",
     menge: 1,
     einheit: "Std.",
     ek_einzelpreis: 0,
@@ -50,6 +69,7 @@ function neueZeile(): KostenzeileInput {
 function zeileAusDetail(z: GewerkDetail["kostenzeilen"][number]): KostenzeileInput {
   return {
     kostenart: z.kostenart,
+    beschreibung: z.beschreibung ?? "",
     menge: z.menge,
     einheit: z.einheit,
     ek_einzelpreis: z.ek_einzelpreis,
@@ -222,16 +242,21 @@ export function GewerkEditor({
               </option>
             ))}
           </Select>
+          <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+            Gruppiert Gewerke, z. B. Sanitär, Heizung oder Elektro. Neue Kategorien legen Sie links in der Übersicht an.
+          </p>
         </div>
 
         <div>
           <Label htmlFor="gw-einheit">Einheit</Label>
-          <Input
+          <Select
             id="gw-einheit"
             value={einheit}
             onChange={(e) => setEinheit(e.target.value)}
-            placeholder="Stück, Std., m² …"
-          />
+          >
+            {!EINHEITEN.includes(einheit) && <option value={einheit}>{einheit}</option>}
+            {EINHEITEN.map((option) => <option key={option} value={option}>{option}</option>)}
+          </Select>
         </div>
 
         <div>
@@ -251,14 +276,11 @@ export function GewerkEditor({
 
         <div>
           <Label htmlFor="gw-steuersatz">Steuersatz (%)</Label>
-          <Input
+          <DezimalInput
             id="gw-steuersatz"
-            type="number"
-            step="0.01"
-            min="0"
             max="100"
             value={steuersatz}
-            onChange={(e) => setSteuersatz(Number(e.target.value))}
+            onChange={setSteuersatz}
           />
         </div>
 
@@ -282,8 +304,9 @@ export function GewerkEditor({
         </div>
 
         <div className="space-y-2">
-          <div className="hidden grid-cols-[1.1fr_0.7fr_0.7fr_1fr_0.7fr_0.8fr_auto] gap-2 px-1 text-xs font-medium text-[var(--color-muted-foreground)] sm:grid">
+          <div className="hidden grid-cols-[1.1fr_1.3fr_0.7fr_0.7fr_1fr_0.7fr_0.8fr_auto] gap-2 px-1 text-xs font-medium text-[var(--color-muted-foreground)] sm:grid">
             <span>Kostenart</span>
+            <span>Beschreibung</span>
             <span>Menge</span>
             <span>Einheit</span>
             <span>EK €</span>
@@ -294,7 +317,7 @@ export function GewerkEditor({
           {zeilen.map((z, i) => (
             <div
               key={i}
-              className="grid grid-cols-2 gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)]/30 p-2 sm:grid-cols-[1.1fr_0.7fr_0.7fr_1fr_0.7fr_0.8fr_auto] sm:items-center"
+              className="grid grid-cols-2 gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)]/30 p-2 sm:grid-cols-[1.1fr_1.3fr_0.7fr_0.7fr_1fr_0.7fr_0.8fr_auto] sm:items-center"
             >
               <Select
                 aria-label="Kostenart"
@@ -308,33 +331,33 @@ export function GewerkEditor({
                 ))}
               </Select>
               <Input
-                aria-label="Menge"
-                type="number"
-                step="0.01"
-                min="0"
-                value={z.menge}
-                onChange={(e) => zeileAendern(i, { menge: Number(e.target.value) })}
+                aria-label="Beschreibung"
+                value={z.beschreibung ?? ""}
+                onChange={(e) => zeileAendern(i, { beschreibung: e.target.value })}
+                placeholder="z. B. Junior"
               />
-              <Input
+              <DezimalInput
+                aria-label="Menge"
+                value={z.menge}
+                onChange={(menge) => zeileAendern(i, { menge })}
+              />
+              <Select
                 aria-label="Einheit"
                 value={z.einheit}
                 onChange={(e) => zeileAendern(i, { einheit: e.target.value })}
-              />
-              <Input
+              >
+                {!EINHEITEN.includes(z.einheit) && <option value={z.einheit}>{z.einheit}</option>}
+                {EINHEITEN.map((option) => <option key={option} value={option}>{option}</option>)}
+              </Select>
+              <DezimalInput
                 aria-label="Einkaufspreis"
-                type="number"
-                step="0.01"
-                min="0"
                 value={z.ek_einzelpreis}
-                onChange={(e) => zeileAendern(i, { ek_einzelpreis: Number(e.target.value) })}
+                onChange={(ek_einzelpreis) => zeileAendern(i, { ek_einzelpreis })}
               />
-              <Input
+              <DezimalInput
                 aria-label="Zuschlag"
-                type="number"
-                step="0.01"
-                min="0"
                 value={z.zuschlag_prozent}
-                onChange={(e) => zeileAendern(i, { zuschlag_prozent: Number(e.target.value) })}
+                onChange={(zuschlag_prozent) => zeileAendern(i, { zuschlag_prozent })}
               />
               <span className="px-1 text-right text-sm font-medium">
                 {formatEuro(zeilenVk(z.ek_einzelpreis, z.menge, z.zuschlag_prozent))}
