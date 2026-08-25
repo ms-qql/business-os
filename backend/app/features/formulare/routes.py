@@ -65,6 +65,14 @@ def get_formular(formular_id: str, user: CurrentUser = Depends(_lesen)):
     return _entwurf(user.mandant_id, formular_id)
 
 
+@formulare_router.get("/{formular_id}/veroeffentlichte-version",
+                       response_model=schemas.PublicFormular)
+def get_veroeffentlichte_version(formular_id: str,
+                                 user: CurrentUser = Depends(_lesen)):
+    return schemas.PublicFormular(
+        **formular_service.get_veroeffentlichte_version(user.mandant_id, formular_id))
+
+
 @formulare_router.patch("/{formular_id}", response_model=schemas.FormularEntwurf)
 def patch_formular(formular_id: str, payload: schemas.FormularPatch,
                    user: CurrentUser = Depends(_write)):

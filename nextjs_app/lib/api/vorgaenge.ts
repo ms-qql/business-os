@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api/client";
 import type { VorgangStatus } from "@/lib/theme/tokens";
+import type { TriageErgebnis, TriageStatus } from "@/lib/api/triage";
 
 export interface VorgangListItem {
   id: string;
@@ -13,6 +14,8 @@ export interface VorgangListItem {
   zugewiesener_nutzer_id: string | null;
   created_at: string;
   updated_at: string;
+  /** Berechnete Ampelbewertung (Büro/Inhaber); fehlt bei Monteur. */
+  triage?: TriageErgebnis;
 }
 
 export interface VorgangListResult {
@@ -53,6 +56,8 @@ export interface VorgangDetail {
   updated_at: string;
   historie: VorgangHistorieEintrag[];
   dokumente: VorgangDokument[];
+  /** Vollständige Ampelbewertung inkl. aller Gründe (Büro/Inhaber); fehlt bei Monteur. */
+  triage?: TriageErgebnis;
 }
 
 export interface VorgangInput {
@@ -71,10 +76,15 @@ export interface VorgangPatch {
   objekt_id?: string | null;
 }
 
+/** Nach Ampelfarbe filtern (Büro/Inhaber). */
+export type TriageFilter = TriageStatus | "alle";
+
 export function listVorgaenge(params: {
   status?: VorgangStatus | "alle";
   suche?: string;
   kunde_id?: string;
+  triage?: TriageFilter;
+  ampelSort?: boolean;
   limit?: number;
   offset?: number;
 } = {}): Promise<VorgangListResult> {
@@ -82,6 +92,8 @@ export function listVorgaenge(params: {
   if (params.status && params.status !== "alle") qs.set("status", params.status);
   if (params.suche) qs.set("q", params.suche);
   if (params.kunde_id) qs.set("kunde_id", params.kunde_id);
+  if (params.triage && params.triage !== "alle") qs.set("triage", params.triage);
+  if (params.ampelSort) qs.set("sort", "ampel");
   qs.set("limit", String(params.limit ?? 20));
   qs.set("offset", String(params.offset ?? 0));
   return apiFetch<VorgangListResult>(`/vorgaenge?${qs.toString()}`);

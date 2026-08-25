@@ -15,6 +15,7 @@ import { PostfachWarnung } from "@/components/email/postfach-warnung";
 import { VorgangAngebote } from "@/components/angebote/vorgang-angebote";
 import { VorgangRechnungen } from "@/components/rechnungen/vorgang-rechnungen";
 import { VorgangTermine } from "@/components/termine/vorgang-termine";
+import { TriageCard } from "@/components/triage/triage-card";
 import { getVorgang, updateVorgang, zuweisen, type VorgangDetail as VorgangDetailT } from "@/lib/api/vorgaenge";
 import { getKunde, listObjekte, type Kunde, type Objekt } from "@/lib/api/kunden";
 import { listNutzer, type Nutzer } from "@/lib/api/users";
@@ -151,6 +152,8 @@ export function VorgangDetail({ vorgangId, rolle }: { vorgangId: string; rolle: 
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {darfSchreiben && <TriageCard triage={vorgang.triage} />}
 
       {darfSchreiben && (
         <div className="grid gap-6 lg:grid-cols-2">

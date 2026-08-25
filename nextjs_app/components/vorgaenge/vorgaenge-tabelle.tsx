@@ -9,11 +9,21 @@ import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/label";
 import { VorgangStatusBadge } from "@/components/vorgaenge/vorgang-status-badge";
 import { VorgangFormDialog } from "@/components/vorgaenge/vorgang-form-dialog";
-import { listVorgaenge, type VorgangListItem } from "@/lib/api/vorgaenge";
+import { AmpelBadge } from "@/components/triage/ampel-badge";
+import { listVorgaenge, type VorgangListItem, type TriageFilter } from "@/lib/api/vorgaenge";
 import { ApiError } from "@/lib/api/client";
 import { VORGANG_STATUS, kannSchreiben, type Rolle, type VorgangStatus } from "@/lib/theme/tokens";
+import type { TriageStatus } from "@/lib/api/triage";
 
 const LIMIT = 20;
+
+const TRIAGE_OPTIONEN: { value: TriageStatus | "alle"; label: string }[] = [
+  { value: "alle", label: "Alle Ampeln" },
+  { value: "gruen", label: "Grün" },
+  { value: "gelb", label: "Gelb" },
+  { value: "rot", label: "Rot" },
+  { value: "nicht_bewertet", label: "Nicht bewertet" },
+];
 
 export function VorgaengeTabelle({ rolle }: { rolle: Rolle }) {
   const [items, setItems] = React.useState<VorgangListItem[]>([]);
@@ -21,16 +31,27 @@ export function VorgaengeTabelle({ rolle }: { rolle: Rolle }) {
   const [offset, setOffset] = React.useState(0);
   const [suche, setSuche] = React.useState("");
   const [status, setStatus] = React.useState<VorgangStatus | "alle">("alle");
+  const [triage, setTriage] = React.useState<TriageFilter>("alle");
+  const [ampelSort, setAmpelSort] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const darfSchreiben = kannSchreiben(rolle);
+  // Monteure sehen keine Triage-UI (serverseitig ohnehin ausgeblendet).
+  const zeigeTriage = rolle !== "Monteur";
 
   const laden = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listVorgaenge({ status, suche: suche || undefined, limit: LIMIT, offset });
+      const res = await listVorgaenge({
+        status,
+        suche: suche || undefined,
+        triage: zeigeTriage ? triage : "alle",
+        ampelSort: zeigeTriage && ampelSort,
+        limit: LIMIT,
+        offset,
+      });
       setItems(res.items);
       setTotal(res.total);
     } catch (err) {
@@ -38,7 +59,7 @@ export function VorgaengeTabelle({ rolle }: { rolle: Rolle }) {
     } finally {
       setLoading(false);
     }
-  }, [status, suche, offset]);
+  }, [status, suche, triage, ampelSort, offset, zeigeTriage]);
 
   React.useEffect(() => {
     void laden();
@@ -71,6 +92,37 @@ export function VorgaengeTabelle({ rolle }: { rolle: Rolle }) {
             </option>
           ))}
         </Select>
+        {zeigeTriage && (
+          <>
+            <Select
+              value={triage}
+              onChange={(e) => {
+                setOffset(0);
+                setTriage(e.target.value as TriageFilter);
+              }}
+              className="w-auto"
+              aria-label="Nach Ampelfarbe filtern"
+            >
+              {TRIAGE_OPTIONEN.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+            <label className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
+              <input
+                type="checkbox"
+                checked={ampelSort}
+                onChange={(e) => {
+                  setOffset(0);
+                  setAmpelSort(e.target.checked);
+                }}
+                className="h-4 w-4 rounded border-[var(--color-border)]"
+              />
+              Nach Ampel sortieren
+            </label>
+          </>
+        )}
         {darfSchreiben && <Button onClick={() => setDialogOpen(true)}>Neuer Vorgang</Button>}
       </div>
 
@@ -88,6 +140,7 @@ export function VorgaengeTabelle({ rolle }: { rolle: Rolle }) {
                 <TableHead>Kunde</TableHead>
                 <TableHead>Anliegen</TableHead>
                 <TableHead>Status</TableHead>
+                {zeigeTriage && <TableHead>Ampel</TableHead>}
                 <TableHead>Zugewiesen</TableHead>
                 <TableHead>Erstellt</TableHead>
               </TableRow>
@@ -104,6 +157,15 @@ export function VorgaengeTabelle({ rolle }: { rolle: Rolle }) {
                   <TableCell>
                     <VorgangStatusBadge status={v.status} />
                   </TableCell>
+                  {zeigeTriage && (
+                    <TableCell>
+                      {v.triage ? (
+                        <AmpelBadge status={v.triage.status} kurzgrund={v.triage.gruende[0] ?? null} />
+                      ) : (
+                        <span className="text-xs text-[var(--color-muted-foreground)]">—</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>{v.zugewiesener_nutzer_id ? "Ja" : "—"}</TableCell>
                   <TableCell>{new Date(v.created_at).toLocaleDateString("de-DE")}</TableCell>
                 </TableRow>

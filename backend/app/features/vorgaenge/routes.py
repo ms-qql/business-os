@@ -14,9 +14,11 @@ _write_roles = require_role("Buero", "Inhaber")
 
 @router.get("", response_model=schemas.VorgangListResponse)
 def list_vorgaenge(status: str | None = None, q: str | None = None, kunde_id: str | None = None,
+                   triage: str | None = None, sort: str | None = None,
                    limit: int = 50, offset: int = 0,
                    user: CurrentUser = Depends(get_current_user)):
-    items, total = vorgaenge_service.list_vorgaenge(user, status, q, kunde_id, limit, offset)
+    items, total = vorgaenge_service.list_vorgaenge(
+        user, status, q, kunde_id, limit, offset, triage=triage, sort=sort)
     return schemas.VorgangListResponse(
         items=[schemas.VorgangListItem(**v) for v in items], total=total, limit=limit, offset=offset,
     )

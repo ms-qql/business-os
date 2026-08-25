@@ -456,6 +456,15 @@ def list_versionen(mandant_id: str, formular_id: str) -> list[dict]:
     )
 
 
+def get_version(mandant_id: str, version_id: str) -> dict | None:
+    rows = db.engine.query(
+        "SELECT id, mandant_id, formular_id, nummer, public_id, inhalt, "
+        "veroeffentlicht_am FROM formular_version WHERE mandant_id = %s AND id = %s",
+        (mandant_id, version_id), mandant_id=mandant_id,
+    )
+    return rows[0] if rows else None
+
+
 def next_version_nummer(mandant_id: str, formular_id: str) -> int:
     rows = db.engine.query(
         "SELECT COALESCE(MAX(nummer), 0) + 1 AS next FROM formular_version "
