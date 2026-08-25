@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends
 
 from app.deps import CurrentUser, require_role
 from app.features.onboarding import schemas
@@ -12,7 +12,6 @@ _inhaber_rolle = require_role("Inhaber")
 
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
-katalog_router = APIRouter(prefix="/katalog", tags=["katalog"])
 
 
 # --- Onboarding-Status (Inhaber-only) ------------------------------------
@@ -70,27 +69,7 @@ def post_branchenpaket_uebernehmen(payload: schemas.BranchenpaketUebernahme,
     return onboarding_service.uebernehmen_branchenpaket(user.mandant_id, payload.kennung)
 
 
-# --- Preisliste / Leistungskatalog (Inhaber-only) ------------------------
-
-@katalog_router.get("", response_model=schemas.KatalogListe)
-def get_katalog(user: CurrentUser = Depends(_inhaber_rolle)):
-    return onboarding_service.list_preisliste(user.mandant_id)
-
-
-@katalog_router.post("/positionen", response_model=schemas.PreislistePosition, status_code=201)
-def post_katalog_position(payload: schemas.PreislistePositionInput,
-                           user: CurrentUser = Depends(_inhaber_rolle)):
-    return onboarding_service.create_preisliste_position(user.mandant_id, payload)
-
-
-@katalog_router.delete("/positionen/{position_id}", status_code=204)
-def delete_katalog_position(position_id: str, user: CurrentUser = Depends(_inhaber_rolle)):
-    onboarding_service.delete_preisliste_position(user.mandant_id, position_id)
-    return None
-
-
-@katalog_router.post("/import", response_model=schemas.KatalogImportResult)
-async def post_katalog_import(datei: UploadFile = File(...),
-                              user: CurrentUser = Depends(_inhaber_rolle)):
-    inhalt = await datei.read()
-    return onboarding_service.import_preisliste_csv(user.mandant_id, inhalt)
+# --- Preisliste / Leistungskatalog --------------------------------------
+# PROJ-22: Der flache /katalog-Leistungskatalog (preisliste) wurde durch die
+# mandantenfähigen /gewerke-Katalogtabellen abgelöst. Die Routen sind entfernt;
+# der Katalog wird jetzt über /gewerke gepflegt.

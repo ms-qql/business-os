@@ -16,24 +16,25 @@ def _login(client, mandant, email, role="Inhaber"):
 
 
 def test_cross_tenant_katalog_position_delete_404(client):
-    """Mandant B darf eine Katalogposition von Mandant A nicht löschen können."""
+    """Mandant B darf ein Gewerk von Mandant A nicht löschen können (PROJ-22)."""
     a = make_mandant("A")
     b = make_mandant("B")
     tok_a = _login(client, a, "a@t.de")
     tok_b = _login(client, b, "b@t.de")
-    r = client.post("/katalog/positionen", headers={"Authorization": f"Bearer {tok_a}"},
-                     json={"bezeichnung": "Geheim", "einheit": "Std",
-                           "netto_einzelpreis": 100, "steuersatz": 19})
-    pid = r.json()["id"]
-    # B versucht As Position zu löschen -> darf nicht klappen (404, nicht 204).
-    d = client.delete(f"/katalog/positionen/{pid}", headers={"Authorization": f"Bearer {tok_b}"})
+    r = client.post("/gewerke", headers={"Authorization": f"Bearer {tok_a}"},
+                     json={"bezeichnung": "Geheim", "einheit": "Std", "steuersatz": 19,
+                           "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                                             "ek_einzelpreis": 100.0, "zuschlag_prozent": 0.0}]})
+    gid = r.json()["id"]
+    # B versucht As Gewerk zu löschen -> darf nicht klappen (404, nicht 204).
+    d = client.delete(f"/gewerke/{gid}", headers={"Authorization": f"Bearer {tok_b}"})
     assert d.status_code == 404, d.text
-    # A's Position existiert weiterhin.
-    lst = client.get("/katalog", headers={"Authorization": f"Bearer {tok_a}"}).json()
-    assert any(p["id"] == pid for p in lst["positionen"])
-    # B sieht As Position nicht in der eigenen Liste.
-    lst_b = client.get("/katalog", headers={"Authorization": f"Bearer {tok_b}"}).json()
-    assert not any(p["id"] == pid for p in lst_b["positionen"])
+    # A's Gewerk existiert weiterhin.
+    lst = client.get("/gewerke", headers={"Authorization": f"Bearer {tok_a}"}).json()
+    assert any(p["id"] == gid for p in lst["items"])
+    # B sieht As Gewerk nicht in der eigenen Liste.
+    lst_b = client.get("/gewerke", headers={"Authorization": f"Bearer {tok_b}"}).json()
+    assert not any(p["id"] == gid for p in lst_b["items"])
 
 
 def test_cross_tenant_testvorgang_delete_404(client):
@@ -109,25 +110,32 @@ def test_postfach_password_never_in_response(client):
 def test_sql_injection_via_bezeichnung(client):
     a = make_mandant("A")
     tok = _login(client, a, "a@t.de")
-    injection = "Wartung'); DROP TABLE preisliste; --"
-    r = client.post("/katalog/positionen", headers={"Authorization": f"Bearer {tok}"},
-                     json={"bezeichnung": injection, "einheit": "Std",
-                           "netto_einzelpreis": 10, "steuersatz": 19})
+    injection = "Wartung'); DROP TABLE gewerk; --"
+    r = client.post("/gewerke", headers={"Authorization": f"Bearer {tok}"},
+                     json={"bezeichnung": injection, "einheit": "Std", "steuersatz": 19,
+                           "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                                             "ek_einzelpreis": 10.0, "zuschlag_prozent": 0.0}]})
     assert r.status_code == 201, r.text
     # Tabelle muss weiterhin existieren und die Zeile lesbar sein (kein Injection-Erfolg).
-    lst = client.get("/katalog", headers={"Authorization": f"Bearer {tok}"}).json()
-    assert any(p["bezeichnung"] == injection for p in lst["positionen"])
+    lst = client.get("/gewerke", headers={"Authorization": f"Bearer {tok}"}).json()
+    assert any(p["bezeichnung"] == injection for p in lst["items"])
 
 
 def test_buero_monteur_cannot_write_katalog(client):
     a = make_mandant("A")
+    # Buero darf Gewerke pflegen (wie Angebote); nur Monteur ist gesperrt.
     tok_buero = _login(client, a, "buero@t.de", "Buero")
+    zeile = {"bezeichnung": "X", "einheit": "Std", "steuersatz": 19,
+             "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                               "ek_einzelpreis": 10.0, "zuschlag_prozent": 0.0}]}
+    r_buero = client.post("/gewerke", headers={"Authorization": f"Bearer {tok_buero}"},
+                          json=zeile)
+    assert r_buero.status_code == 201, r_buero.text
+    # Monteur hat keinen Schreibzugriff.
     tok_monteur = _login(client, a, "monteur@t.de", "Monteur")
-    for tok in (tok_buero, tok_monteur):
-        r = client.post("/katalog/positionen", headers={"Authorization": f"Bearer {tok}"},
-                        json={"bezeichnung": "X", "einheit": "Std",
-                              "netto_einzelpreis": 10, "steuersatz": 19})
-        assert r.status_code == 403, r.text
+    r = client.post("/gewerke", headers={"Authorization": f"Bearer {tok_monteur}"},
+                    json=zeile)
+    assert r.status_code == 403, r.text
 
 
 def test_veroeffentlichen_requires_inhaber(client):

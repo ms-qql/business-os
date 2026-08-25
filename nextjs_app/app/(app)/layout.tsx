@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox, CalendarDays, ListChecks, FileText } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox, CalendarDays, ListChecks, FileText, Boxes } from "lucide-react";
 import { useAuth } from "@/app/providers";
 import { getToken } from "@/lib/session";
 import { NAV_RECHTE } from "@/lib/theme/tokens";
@@ -17,7 +17,8 @@ const ICONS: Record<string, React.ReactNode> = {
   postfach: <Inbox size={18} />,
   nutzerverwaltung: <Users size={18} />,
   "website-einstellungen": <Globe size={18} />,
-  "formulare": <FileText size={18} />,
+  formulare: <FileText size={18} />,
+  gewerke: <Boxes size={18} />,
   "website-builder": <LayoutDashboard size={18} />,
   "postfach-einstellungen": <Settings2 size={18} />,
   "rechnungssteller": <FileText size={18} />,
@@ -38,6 +39,7 @@ const LABELS: Record<string, string> = {
   "onboarding": "Onboarding",
   termine: "Termine",
   "formulare": "Formulare",
+  "gewerke": "Gewerke-Katalog",
 };
 
 const PATHS: Record<string, string> = {
@@ -53,6 +55,7 @@ const PATHS: Record<string, string> = {
   "onboarding": "/onboarding",
   termine: "/termine",
   "formulare": "/formulare",
+  "gewerke": "/gewerke",
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

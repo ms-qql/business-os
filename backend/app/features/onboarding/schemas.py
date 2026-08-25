@@ -82,43 +82,6 @@ class TestvorgangResult(BaseModel):
     erstellt_am: Optional[datetime | str] = None
 
 
-# --- Preisliste / Leistungskatalog (PROJ-7, Schritt 6) -------------------
-
-class PreislistePosition(BaseModel):
-    id: str
-    bezeichnung: str
-    einheit: str
-    netto_einzelpreis: float
-    steuersatz: float
-
-
-class PreislistePositionInput(BaseModel):
-    bezeichnung: str = Field(min_length=1)
-    einheit: str = "Stk."
-    netto_einzelpreis: float = Field(ge=0)
-    steuersatz: float = Field(ge=0, le=100)
-
-
-class KatalogListe(BaseModel):
-    positionen: list[PreislistePosition]
-
-
-class KatalogImportFehler(BaseModel):
-    zeile: int
-    grund: str
-
-
-class KatalogImportZeile(BaseModel):
-    zeile: int
-    uebernommen: bool
-
-
-class KatalogImportResult(BaseModel):
-    uebernommen: list[KatalogImportZeile]
-    fehler: list[KatalogImportFehler]
-    anzahl_uebernommen: int
-
-
 # --- Branchenpaket (PROJ-14) --------------------------------------------
 
 class BranchenpaketOption(BaseModel):

@@ -172,51 +172,43 @@ def test_veroeffentlichen_gate_alle_schritte(client, mandant):
     assert body["veroeffentlicht_am"] is not None
 
 
-# --- Preisliste CRUD + CSV-Import -----------------------------------------
+# --- Gewerk-Katalog CRUD + Duplikat-Guard (PROJ-22) ----------------------
 
-def test_preisliste_crud(client, mandant):
+def test_gewerk_crud(client, mandant):
     tok = _login(client, mandant, "inh@t.de")
     # Anlegen
-    r = client.post("/katalog/positionen", headers={"Authorization": f"Bearer {tok}"},
-                    json={"bezeichnung": "Wartung", "einheit": "Std", "netto_einzelpreis": 50,
-                          "steuersatz": 19})
+    r = client.post("/gewerke", headers={"Authorization": f"Bearer {tok}"},
+                    json={"bezeichnung": "Wartung", "einheit": "Std", "steuersatz": 19,
+                          "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                                            "ek_einzelpreis": 50.0, "zuschlag_prozent": 10.0}]})
     assert r.status_code == 201, r.text
-    pid = r.json()["id"]
+    gid = r.json()["id"]
+    assert r.json()["vk_preis"] == 55.0  # 50 + 10%
     # Liste
-    lst = client.get("/katalog", headers={"Authorization": f"Bearer {tok}"}).json()
-    assert len(lst["positionen"]) == 1
-    # Duplikat -> 409
-    r2 = client.post("/katalog/positionen", headers={"Authorization": f"Bearer {tok}"},
-                     json={"bezeichnung": "Wartung", "einheit": "Std", "netto_einzelpreis": 60,
-                           "steuersatz": 19})
+    lst = client.get("/gewerke", headers={"Authorization": f"Bearer {tok}"}).json()
+    assert len(lst["items"]) == 1
+    # Duplikat (gleiche Bezeichnung + Einheit) -> 409
+    r2 = client.post("/gewerke", headers={"Authorization": f"Bearer {tok}"},
+                     json={"bezeichnung": "Wartung", "einheit": "Std", "steuersatz": 19,
+                           "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                                             "ek_einzelpreis": 60.0, "zuschlag_prozent": 0.0}]})
     assert r2.status_code == 409, r2.text
+    # Duplikat mit Bestätigung -> 201
+    r3 = client.post("/gewerke", headers={"Authorization": f"Bearer {tok}"},
+                     json={"bezeichnung": "Wartung", "einheit": "Std", "steuersatz": 19,
+                           "duplikat_bestaetigt": True,
+                           "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                                             "ek_einzelpreis": 60.0, "zuschlag_prozent": 0.0}]})
+    assert r3.status_code == 201, r3.text
     # Löschen
-    d = client.delete(f"/katalog/positionen/{pid}", headers={"Authorization": f"Bearer {tok}"})
+    d = client.delete(f"/gewerke/{gid}", headers={"Authorization": f"Bearer {tok}"})
     assert d.status_code == 204
-    lst2 = client.get("/katalog", headers={"Authorization": f"Bearer {tok}"}).json()
-    assert len(lst2["positionen"]) == 0
-
-
-def test_preisliste_csv_import_zeilenvalidierung(client, mandant):
-    tok = _login(client, mandant, "inh@t.de")
-    csv = "bezeichnung;einheit;netto_einzelpreis;steuersatz\n"
-    csv += "Wartung;Std;50,00;19\n"          # Komma statt Punkt -> normalisiert
-    csv += "Reparatur;Std;€ 75,50;19\n"       # Währungszeichen -> normalisiert
-    csv += "Wartung;Std;10;19\n"              # Duplikat -> Fehler
-    csv += "Falsch;Std;nope;19\n"            # ungültiger Preis -> Fehler
-    csv += ";Std;10;19\n"                     # leere Bezeichnung -> Fehler
-    files = {"datei": ("katalog.csv", csv.encode("utf-8"), "text/csv")}
-    r = client.post("/katalog/import", headers={"Authorization": f"Bearer {tok}"}, files=files)
-    assert r.status_code == 200, r.text
-    res = r.json()
-    # 2 korrekte übernommen (Wartung, Reparatur), 3 Fehler.
-    assert res["anzahl_uebernommen"] == 2, res
-    assert len(res["fehler"]) == 3, res
-    fehler_zeilen = {f["zeile"] for f in res["fehler"]}
-    assert 4 in fehler_zeilen and 5 in fehler_zeilen and 6 in fehler_zeilen
-    # Kein Duplikat angelegt -> nur 2 Positionen.
-    lst = client.get("/katalog", headers={"Authorization": f"Bearer {tok}"}).json()
-    assert len(lst["positionen"]) == 2
+    # Ungültige Kostenzeile (EK <= 0) -> 422
+    r4 = client.post("/gewerke", headers={"Authorization": f"Bearer {tok}"},
+                     json={"bezeichnung": "X", "einheit": "Std", "steuersatz": 19,
+                           "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0, "einheit": "Std",
+                                             "ek_einzelpreis": 0.0, "zuschlag_prozent": 0.0}]})
+    assert r4.status_code == 422, r4.text
 
 
 # --- Testvorgang: Erzeugung, Ausschluss, kaskadierendes Löschen ----------

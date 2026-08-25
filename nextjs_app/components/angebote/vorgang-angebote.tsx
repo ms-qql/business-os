@@ -3,16 +3,20 @@
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Boxes, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label, Alert } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Dialog } from "@/components/ui/dialog";
 import { PositionForm } from "@/components/angebote/position-form";
 import { AngebotFreigabe } from "@/components/angebote/angebot-freigabe";
+import { GewerkUebernahme } from "@/components/gewerke/gewerk_uebernahme";
+import { PositionOverride } from "@/components/gewerke/position_override";
 import { ApiError } from "@/lib/api/client";
+import { formatEuro } from "@/lib/format";
 import {
   listAngebote,
   createAngebot,
@@ -29,7 +33,7 @@ import {
 import { kopfdatenSchema, type KopfdatenFormValues } from "@/lib/schemas/angebot";
 import type { PositionFormValues } from "@/lib/schemas/angebot";
 
-function formatEuro(wert: number): string {
+function formatEuroLocal(wert: number): string {
   return wert.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
 
@@ -83,15 +87,15 @@ function SummenBlock({ angebot }: { angebot: Angebot }) {
     <div className="grid grid-cols-3 gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 text-sm">
       <div>
         <p className="text-[var(--color-muted-foreground)]">Netto</p>
-        <p className="font-medium">{formatEuro(angebot.netto_summe)}</p>
+        <p className="font-medium">{formatEuroLocal(angebot.netto_summe)}</p>
       </div>
       <div>
         <p className="text-[var(--color-muted-foreground)]">Steuer</p>
-        <p className="font-medium">{formatEuro(angebot.steuer_summe)}</p>
+        <p className="font-medium">{formatEuroLocal(angebot.steuer_summe)}</p>
       </div>
       <div>
         <p className="text-[var(--color-muted-foreground)]">Brutto</p>
-        <p className="font-medium">{formatEuro(angebot.brutto_summe)}</p>
+        <p className="font-medium">{formatEuroLocal(angebot.brutto_summe)}</p>
       </div>
     </div>
   );
@@ -100,13 +104,17 @@ function SummenBlock({ angebot }: { angebot: Angebot }) {
 function PositionenTabelle({
   angebot,
   bearbeitetId,
+  overrideId,
   onBearbeiten,
   onEntfernen,
+  onOverrideStarten,
 }: {
   angebot: Angebot;
   bearbeitetId: string | null;
+  overrideId: string | null;
   onBearbeiten: (id: string) => void;
   onEntfernen: (id: string) => void;
+  onOverrideStarten: (id: string) => void;
 }) {
   if (angebot.positionen.length === 0) {
     return <p className="text-sm text-[var(--color-muted-foreground)]">Noch keine Positionen hinzugefügt.</p>;
@@ -126,18 +134,44 @@ function PositionenTabelle({
       </TableHeader>
       <TableBody>
         {angebot.positionen.map((p) => (
-          <TableRow key={p.id} className={bearbeitetId === p.id ? "bg-[var(--color-surface-muted)]" : undefined}>
-            <TableCell>{p.bezeichnung}</TableCell>
+          <TableRow key={p.id} className={bearbeitetId === p.id || overrideId === p.id ? "bg-[var(--color-surface-muted)]" : undefined}>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                {p.bezeichnung}
+                {p.aus_gewerk && (
+                  <Badge variant="brand" title="Aus einem Gewerk übernommen (Kalkulations-Snapshot)">
+                    Gewerk
+                  </Badge>
+                )}
+              </div>
+              {p.aus_gewerk && p.kalkulierter_einzelpreis !== null && p.kalkulierter_einzelpreis !== p.einzelpreis && (
+                <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                  kalkuliert: {formatEuroLocal(p.kalkulierter_einzelpreis)}
+                  {p.preis_override_begruendung ? ` · ${p.preis_override_begruendung}` : ""}
+                </div>
+              )}
+            </TableCell>
             <TableCell>{p.menge} {p.einheit}</TableCell>
-            <TableCell>{formatEuro(p.einzelpreis)}</TableCell>
+            <TableCell>{formatEuroLocal(p.einzelpreis)}</TableCell>
             <TableCell>{p.steuersatz} %</TableCell>
-            <TableCell>{p.rabatt_typ === "prozent" ? `${p.rabatt_wert} %` : formatEuro(p.rabatt_wert)}</TableCell>
-            <TableCell>{formatEuro(p.positions_summe)}</TableCell>
+            <TableCell>{p.rabatt_typ === "prozent" ? `${p.rabatt_wert} %` : formatEuroLocal(p.rabatt_wert)}</TableCell>
+            <TableCell>{formatEuroLocal(p.positions_summe)}</TableCell>
             <TableCell>
               <div className="flex gap-1">
                 <button type="button" aria-label="Position bearbeiten" onClick={() => onBearbeiten(p.id)} className="rounded p-1 hover:bg-[var(--color-border)]">
                   <Pencil size={14} />
                 </button>
+                {p.aus_gewerk && (
+                  <button
+                    type="button"
+                    aria-label="Preis anpassen (interne Begründung)"
+                    onClick={() => onOverrideStarten(p.id)}
+                    className="rounded p-1 hover:bg-[var(--color-border)]"
+                    title="Preis anpassen (interne Begründung)"
+                  >
+                    <Calculator size={14} />
+                  </button>
+                )}
                 <button type="button" aria-label="Position entfernen" onClick={() => onEntfernen(p.id)} className="rounded p-1 hover:bg-[var(--color-border)]">
                   <Trash2 size={14} />
                 </button>
@@ -173,10 +207,13 @@ function AngebotEditor({
 }) {
   const [bearbeitetId, setBearbeitetId] = React.useState<string | null>(null);
   const [zeigeNeu, setZeigeNeu] = React.useState(false);
+  const [uebernahmeOffen, setUebernahmeOffen] = React.useState(false);
+  const [overrideId, setOverrideId] = React.useState<string | null>(null);
   const [speichert, setSpeichert] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const bearbeitetePosition = angebot.positionen.find((p) => p.id === bearbeitetId) ?? null;
+  const overridePosition = angebot.positionen.find((p) => p.id === overrideId) ?? null;
 
   async function onHinzufuegen(values: PositionFormValues) {
     setSpeichert(true);
@@ -223,12 +260,31 @@ function AngebotEditor({
       <PositionenTabelle
         angebot={angebot}
         bearbeitetId={bearbeitetId}
+        overrideId={overrideId}
         onBearbeiten={(id) => {
           setBearbeitetId(id);
+          setOverrideId(null);
           setZeigeNeu(false);
         }}
         onEntfernen={onEntfernen}
+        onOverrideStarten={(id) => {
+          setOverrideId(id);
+          setBearbeitetId(null);
+          setZeigeNeu(false);
+        }}
       />
+
+      {overridePosition && (
+        <PositionOverride
+          angebot={angebot}
+          position={overridePosition}
+          onAngepasst={(a) => {
+            onChange(a);
+            setOverrideId(null);
+          }}
+          onAbbrechen={() => setOverrideId(null)}
+        />
+      )}
 
       {bearbeitetePosition ? (
         <PositionForm
@@ -239,11 +295,17 @@ function AngebotEditor({
         />
       ) : zeigeNeu ? (
         <PositionForm onSubmit={onHinzufuegen} onAbbrechen={() => setZeigeNeu(false)} speichert={speichert} />
-      ) : (
-        <Button type="button" size="sm" variant="secondary" onClick={() => setZeigeNeu(true)}>
-          <Plus size={16} />
-          Position hinzufügen
-        </Button>
+      ) : overridePosition ? null : (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="secondary" onClick={() => setZeigeNeu(true)}>
+            <Plus size={16} />
+            Position hinzufügen
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setUebernahmeOffen(true)}>
+            <Boxes size={16} />
+            Aus Gewerk übernehmen
+          </Button>
+        </div>
       )}
 
       <SummenBlock angebot={angebot} />
@@ -257,6 +319,22 @@ function AngebotEditor({
       >
         Zur Freigabe
       </Button>
+
+      <Dialog
+        open={uebernahmeOffen}
+        onOpenChange={setUebernahmeOffen}
+        title="Gewerk übernehmen"
+        description="Das Gewerk wird als Kalkulations-Snapshot in das Angebot übernommen."
+        className="max-w-2xl"
+      >
+        <GewerkUebernahme
+          angebotId={angebot.id}
+          onUebernommen={(a) => {
+            onChange(a);
+            setUebernahmeOffen(false);
+          }}
+        />
+      </Dialog>
     </div>
   );
 }
@@ -344,7 +422,7 @@ export function VorgangAngebote({
               <Badge variant={a.status === "versendet" ? "success" : "neutral"}>
                 {a.status === "versendet" ? "Versendet" : "Entwurf"}
               </Badge>
-              <span className="text-[var(--color-muted-foreground)]">{formatEuro(a.brutto_summe)}</span>
+              <span className="text-[var(--color-muted-foreground)]">{formatEuroLocal(a.brutto_summe)}</span>
             </li>
           ))}
         </ul>

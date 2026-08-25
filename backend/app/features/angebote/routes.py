@@ -60,9 +60,27 @@ def update_position(angebot_id: str, position_id: str, payload: schemas.Position
 
 
 @router.delete("/angebote/{angebot_id}/positionen/{position_id}", response_model=schemas.AngebotDetail)
-def delete_position(angebot_id: str, position_id: str, user: CurrentUser = Depends(_write_roles)):
+def delete_position(angebot_id: str, position_id: str,
+                    user: CurrentUser = Depends(_write_roles)):
     angebote_service.delete_position(user, angebot_id, position_id)
     return _to_detail(angebote_service.get_angebot_detail(user, angebot_id))
+
+
+@router.post("/angebote/{angebot_id}/positionen/aus-gewerk", response_model=schemas.AngebotDetail, status_code=201)
+def add_position_aus_gewerk(angebot_id: str, payload: schemas.PositionAusGewerk,
+                             user: CurrentUser = Depends(_write_roles)):
+    from app.features.gewerke import service as gewerk_service
+
+    return _to_detail(gewerk_service.add_position_aus_gewerk(user, angebot_id, payload))
+
+
+@router.patch("/angebote/{angebot_id}/positionen/{position_id}/preis-override",
+               response_model=schemas.AngebotDetail)
+def override_position_preis(angebot_id: str, position_id: str, payload: schemas.PreisOverride,
+                            user: CurrentUser = Depends(_write_roles)):
+    from app.features.gewerke import service as gewerk_service
+
+    return _to_detail(gewerk_service.override_position_preis(user, angebot_id, position_id, payload))
 
 
 @router.get("/angebote/{angebot_id}/pdf", response_model=schemas.DownloadRead)

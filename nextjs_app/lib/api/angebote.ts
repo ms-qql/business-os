@@ -16,6 +16,12 @@ export interface AngebotPosition {
   rabatt_wert: number;
   positions_summe: number;
   sortierung: number;
+  /** Herkunftsnachweis (PROJ-22): true, wenn aus einem Gewerk übernommen. */
+  aus_gewerk: boolean;
+  /** Kalkulierter Ausgangs-Einzelpreis (nur bei aus_gewerk, sonst null). */
+  kalkulierter_einzelpreis: number | null;
+  /** Interne Begründung für eine Preisanpassung (nur Inhaber/Büro, nie im PDF). */
+  preis_override_begruendung: string | null;
 }
 
 export interface Angebot {
@@ -54,6 +60,8 @@ export interface PositionInput {
   steuersatz: number;
   rabatt_typ: RabattTyp;
   rabatt_wert: number;
+  /** PROJ-22: interne Begründung bei Abweichung vom kalkulierten Wert (nur aus_gewerk). */
+  preis_override_begruendung?: string | null;
 }
 
 export interface KopfdatenInput {

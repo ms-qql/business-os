@@ -87,11 +87,16 @@ def test_uebernehmen_shk_atomar(client, mandant):
         (mandant,), mandant_id=mandant,
     )
     assert int(leist[0]["c"]) == 5
-    preis = db.engine.query(
-        "SELECT COUNT(*) AS c FROM preisliste WHERE mandant_id = %s",
+    gewerke = db.engine.query(
+        "SELECT COUNT(*) AS c FROM gewerk WHERE mandant_id = %s",
         (mandant,), mandant_id=mandant,
     )
-    assert int(preis[0]["c"]) == 3
+    assert int(gewerke[0]["c"]) == 3
+    kosten = db.engine.query(
+        "SELECT COUNT(*) AS c FROM gewerk_kostenzeile WHERE mandant_id = %s",
+        (mandant,), mandant_id=mandant,
+    )
+    assert int(kosten[0]["c"]) == 3
     form = db.engine.query(
         "SELECT COUNT(*) AS c FROM formular WHERE mandant_id = %s",
         (mandant,), mandant_id=mandant,
@@ -209,12 +214,15 @@ def test_veroeffentlichen_with_package(client, mandant):
     client.patch("/website-settings", headers={"Authorization": f"Bearer {tok}"},
                   json={"leistungen": [{"slug": slug, "aktiv": True,
                                        "kurzbeschreibung": "K", "inhalt": "L"}]})
-    # 4) Domain + Preisliste + Testvorgang + Postfach.
+    # 4) Domain + Katalog (Gewerke) + Testvorgang + Postfach.
     client.put("/onboarding/domain", headers={"Authorization": f"Bearer {tok}"},
                json={"hostname": "mein-shk.de"})
-    client.post("/katalog/positionen", headers={"Authorization": f"Bearer {tok}"},
-                 json={"bezeichnung": "Wartung", "einheit": "Std",
-                       "netto_einzelpreis": 50, "steuersatz": 19})
+    client.post("/gewerke", headers={"Authorization": f"Bearer {tok}"},
+                json={"bezeichnung": "Wartung", "einheit": "Std",
+                      "steuersatz": 19,
+                      "kostenzeilen": [{"kostenart": "lohn", "menge": 1.0,
+                                        "einheit": "Std", "ek_einzelpreis": 50.0,
+                                        "zuschlag_prozent": 0.0}]})
     client.post("/onboarding/testvorgang", headers={"Authorization": f"Bearer {tok}"})
     db.engine.command(
         "INSERT INTO email_konto (id, mandant_id, imap_host, imap_port, imap_user, "
