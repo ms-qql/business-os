@@ -19,7 +19,7 @@
 | PROJ-6 | Terminplanung und Teamzuweisung | P0 | Deployed | PROJ-3, PROJ-1 | Deployed 2026-08-18, v0.1.7 · biz.app.msce.info; QA bestanden 7/7 AC, Security-Audit ohne Befund, BUG-1 gefixt+retestet |
 | PROJ-7 | Begleitetes Onboarding: Betriebsdaten, Branding und Postfach | P0 | Deployed | PROJ-1, PROJ-2, PROJ-4, PROJ-5 | Deployed v0.1.8, 2026-08-19; Postfach-Tests und Settings als Vorlage |
 | PROJ-8 | PDF-Rechnungen und Rechnungsdokumente | P0 | Approved | PROJ-3, PROJ-5 | Speicher- und Versandpfade; Rechnungsvorlage neu; QA: READY (Bugfix verifiziert) |
-| PROJ-15 | Auto-Triage mit Ampel (Passung/Dringlichkeit/Kapazität) | P0 (Vorschlag) | Approved | PROJ-3, PROJ-6, PROJ-13 | QA READY: 8/8 AC, Security-Redteam ohne Befund (Cross-Tenant/JWT/SQLi) |
+| PROJ-15 | Auto-Triage mit Ampel (Passung/Dringlichkeit/Kapazität) | P0 (Vorschlag) | Deployed | PROJ-3, PROJ-6, PROJ-13 | Deployed 2026-08-25, v0.1.19 · bizos.app.msce.info; QA 8/8 AC, Security-Audit ohne Befund |
 | PROJ-9 | Mobile Monteuransicht und Auftragsabschluss | P1 | Proposed | PROJ-3, PROJ-6 | Kein UI-Reuse; responsive Webansicht neu |
 | PROJ-10 | Erinnerungen und Statusautomationen | P1 | Proposed | PROJ-4, PROJ-5, PROJ-6 | Reminder-Sweeper und Versandvorbereitung als Vorlage |
 | PROJ-11 | Datenschutz, Datenexport und Aufbewahrung | P1 | Proposed | PROJ-1 | Retention-, Lösch- und Exportmuster als Vorlage; Umfang jetzt konkretisiert (Verarbeitungsverzeichnis, AVV, Self-Service-Portal, Audit-Log, Feldverschlüsselung) |

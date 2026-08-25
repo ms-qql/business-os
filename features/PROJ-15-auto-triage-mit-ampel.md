@@ -1,8 +1,9 @@
 # PROJ-15: Auto-Triage mit Ampel
 
-## Status: Approved — QA READY (2026-08-25)
+## Status: Deployed (2026-08-25)
 **Created:** 2026-08-25
 **Last Updated:** 2026-08-25
+**Deployed:** 2026-08-25 · Version: v0.1.19-PROJ-15 · Host: bizos.app.msce.info
 
 ## Dependencies
 - Requires: PROJ-3 — Vorgänge und ihre Anfrageinformationen.
