@@ -43,6 +43,7 @@ def register_routes() -> None:
         formulare_router, public_formulare_router, einsendungen_router,
     )
     from app.features.gewerke import gewerke_router
+    from app.features.triage import triage_router
 
     app.include_router(auth_router)
     app.include_router(users_router)
@@ -65,6 +66,7 @@ def register_routes() -> None:
     app.include_router(public_formulare_router)
     app.include_router(einsendungen_router)
     app.include_router(gewerke_router)
+    app.include_router(triage_router)
 
 
 register_routes()

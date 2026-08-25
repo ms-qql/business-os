@@ -399,6 +399,31 @@ def get_public_formular(hostname: str, public_id: str) -> dict:
     return inhalt
 
 
+def get_veroeffentlichte_version(mandant_id: str, formular_id: str) -> dict:
+    """JWT-/mandantengeschützter Lesepfad des unveränderlichen Snapshots der
+    aktuell veröffentlichten Version (formular_version.inhalt) — analog zu
+    get_public_formular, aber ohne Hostname-Auflösung. 404 falls nicht
+    veröffentlicht oder keine aktuelle Version verknüpft ist.
+
+    Wichtig: liefert den Snapshot, NICHT den Entwurf (formular_feld/
+    formular_option). Triage-Konfiguration liest daraus die tatsächlich
+    öffentlich sichtbaren Felder/Optionen."""
+    formular = _require_formular(mandant_id, formular_id)
+    if not formular.get("veroeffentlicht") or not formular.get("aktuelle_version_id"):
+        raise NotFoundError("Dieses Formular ist nicht veröffentlicht.")
+    version = repo.get_version(mandant_id, formular["aktuelle_version_id"])
+    if not version:
+        raise NotFoundError("Veröffentlichung nicht gefunden.")
+    import json
+    inhalt = version["inhalt"]
+    if isinstance(inhalt, str):
+        inhalt = json.loads(inhalt)
+    inhalt = dict(inhalt)
+    # Snapshot speichert 'komplexitaet'; konsistente API erwartet 'modus'.
+    inhalt["modus"] = inhalt.pop("komplexitaet", "einfach")
+    return inhalt
+
+
 def _sniff_ext(data: bytes) -> tuple[str, str] | None:
     """(extension, content_type) anhand Magic-Bytes — JPEG/PNG/WebP/PDF."""
     if data.startswith(b"\xff\xd8\xff"):

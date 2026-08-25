@@ -236,6 +236,18 @@ export function getEinbindung(id: string): Promise<Einbindung> {
   ).then(({ direktlink, iframe, snippet }) => ({ url: direktlink, iframe, javascript: snippet }));
 }
 
+/**
+ * Unveränderlicher Snapshot der aktuell veröffentlichten Version (formular_version.inhalt).
+ * Mandanten-/JWT-geschützt, im Gegensatz zum öffentlichen Endpunkt. Nötig für die
+ * Triage-Konfiguration, damit nur tatsächlich veröffentlichte Felder/Optionen auswählbar sind.
+ * 404 falls formular.veroeffentlicht false oder keine aktuelle_version_id.
+ */
+export function getVeroeffentlichteVersion(id: string): Promise<FormularSnapshot> {
+  return apiFetch<RawPublicFormular>(
+    `/formulare/${encodeURIComponent(id)}/veroeffentlichte-version`,
+  ).then(mapPublicFormular);
+}
+
 // --- Öffentlich -----------------------------------------------------------
 
 export function getPublicFormular(publicId: string): Promise<FormularSnapshot> {

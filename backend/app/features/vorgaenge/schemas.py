@@ -5,6 +5,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from app.features.triage.schemas import TriageErgebnis
+
 VorgangStatus = Literal["Neu", "Rückruf", "Angebot offen", "Termin geplant", "Erledigt", "Abgeschlossen"]
 
 VALID_STATUS: tuple[str, ...] = (
@@ -40,6 +42,8 @@ class VorgangListItem(BaseModel):
     zugewiesener_nutzer_id: Optional[str] = None
     created_at: datetime | str
     updated_at: datetime | str
+    # PROJ-15: berechnete Triage-Ampel (nicht persistiert). Nur für Inhaber/Büro.
+    triage: Optional[TriageErgebnis] = None
 
 
 class VorgangListResponse(BaseModel):
@@ -81,6 +85,8 @@ class VorgangDetail(BaseModel):
     dokumente: list[DokumentRead]
     # PROJ-13: verknüpfte Formular-Einsendung (sofern die Anfrage daraus entstand).
     formular_einsendung: Optional[dict] = None
+    # PROJ-15: berechnete Triage-Ampel (nicht persistiert). Nur für Inhaber/Büro.
+    triage: Optional[TriageErgebnis] = None
 
 
 class ZuweisungCreate(BaseModel):

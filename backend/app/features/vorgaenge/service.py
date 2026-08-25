@@ -43,15 +43,54 @@ def _require_vorgang(mandant_id: str, vorgang_id: str) -> dict:
 # --- Liste / Detail -----------------------------------------------------
 
 def list_vorgaenge(user, status: str | None, q: str | None, kunde_id: str | None,
-                   limit: int, offset: int) -> tuple[list[dict], int]:
+                   limit: int, offset: int,
+                   triage: str | None = None, sort: str | None = None) -> tuple[list[dict], int]:
     if status is not None and status != "alle" and status not in VALID_STATUS:
         raise ValidationError("Ungültiger Status.")
+    valid_triage = {"gruen", "gelb", "rot", "nicht_bewertet"}
+    if triage is not None and triage not in valid_triage:
+        raise ValidationError("Ungültiger Triage-Filter.")
+    if sort is not None and sort != "ampel":
+        raise ValidationError("Ungültige Sortierung.")
     limit = min(max(limit, 1), 200)
     offset = max(offset, 0)
     repo_status = None if status == "alle" else status
     zugewiesener_nutzer_id = user.id if user.role == "Monteur" else None
-    return repo.list_vorgaenge(user.mandant_id, repo_status, q, kunde_id, zugewiesener_nutzer_id,
-                               limit, offset)
+
+    # Triage ist eine berechnete Arbeitshilfe. Monteure erhalten sie nicht.
+    if user.role == "Monteur":
+        return repo.list_vorgaenge(user.mandant_id, repo_status, q, kunde_id,
+                                   zugewiesener_nutzer_id, limit, offset)
+
+    from app.features.triage import service as triage_service
+    from app.features.formulare import service as formular_service
+
+    # Gesamtmenge laden (ohne Limit), dann Triage berechnen/filtern/sortieren.
+    alle, total = repo.list_vorgaenge(
+        user.mandant_id, repo_status, q, kunde_id, zugewiesener_nutzer_id, 1000, 0)
+    bewertet = []
+    for v in alle:
+        anfrage_rows = repo.get_anfrage_fuer_vorgang(user.mandant_id, v["id"])
+        einsendung = None
+        anfrage_dict = anfrage_rows[0] if anfrage_rows else None
+        if anfrage_dict and anfrage_dict.get("formular_einsendung_id"):
+            einsendung = formular_service.get_einsendung_fuer_anfrage(
+                user.mandant_id, anfrage_dict["id"])
+        ergebnis = triage_service.berechne(
+            user.mandant_id, {**v, "_anfrage": anfrage_dict}, einsendung)
+        v = dict(v)
+        v["triage"] = ergebnis.model_dump()
+        bewertet.append(v)
+    if triage:
+        bewertet = [b for b in bewertet if b["triage"]["status"] == triage]
+    if sort == "ampel":
+        rang = {"rot": 0, "gelb": 1, "gruen": 2, "nicht_bewertet": 3}
+        bewertet.sort(key=lambda b: (rang.get(b["triage"]["status"], 3),
+                                     b["created_at"]), reverse=False)
+    else:
+        # Standard: wie bisher nach Erstelldatum absteigend.
+        bewertet.sort(key=lambda b: b["created_at"], reverse=True)
+    return bewertet[offset:offset + limit], len(bewertet)
 
 
 def get_vorgang_detail(user, vorgang_id: str) -> dict:
@@ -63,11 +102,20 @@ def get_vorgang_detail(user, vorgang_id: str) -> dict:
     # PROJ-13: verknüpfte Formular-Einsendung (sofern diese Anfrage daraus entstand).
     from app.features.formulare import service as formular_service
     anfrage_rows = repo.get_anfrage_fuer_vorgang(user.mandant_id, vorgang_id)
+    einsendung = None
     if anfrage_rows and anfrage_rows[0].get("formular_einsendung_id"):
         einsendung = formular_service.get_einsendung_fuer_anfrage(
             user.mandant_id, anfrage_rows[0]["id"])
         if einsendung:
             result["formular_einsendung"] = einsendung
+    # PROJ-15: berechnete Triage-Ampel — nur für Inhaber/Büro, nie Monteur.
+    if user.role != "Monteur":
+        from app.features.triage import service as triage_service
+        anfrage = repo.get_anfrage_fuer_vorgang(user.mandant_id, vorgang_id)
+        anfrage_dict = anfrage[0] if anfrage else None
+        vorgang_mit_anfrage = {**vorgang, "_anfrage": anfrage_dict}
+        result["triage"] = triage_service.berechne(
+            user.mandant_id, vorgang_mit_anfrage, einsendung).model_dump()
     return result
 
 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox, CalendarDays, ListChecks, FileText, Boxes } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Globe, Contact, ClipboardList, Settings2, Inbox, CalendarDays, ListChecks, FileText, Boxes, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/app/providers";
 import { getToken } from "@/lib/session";
 import { NAV_RECHTE } from "@/lib/theme/tokens";
@@ -24,6 +24,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "rechnungssteller": <FileText size={18} />,
   "onboarding": <ListChecks size={18} />,
   termine: <CalendarDays size={18} />,
+  triage: <SlidersHorizontal size={18} />,
 };
 
 const LABELS: Record<string, string> = {
@@ -40,6 +41,7 @@ const LABELS: Record<string, string> = {
   termine: "Termine",
   "formulare": "Formulare",
   "gewerke": "Gewerke-Katalog",
+  triage: "Triage",
 };
 
 const PATHS: Record<string, string> = {
@@ -56,6 +58,7 @@ const PATHS: Record<string, string> = {
   termine: "/termine",
   "formulare": "/formulare",
   "gewerke": "/gewerke",
+  triage: "/einstellungen/triage",
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

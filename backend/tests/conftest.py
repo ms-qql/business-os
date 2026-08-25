@@ -296,8 +296,20 @@ CREATE TABLE formular_einsendung_versuche (
 CREATE TABLE formular_upload_versuche (
     id TEXT PRIMARY KEY, ip TEXT, created_at TEXT NOT NULL DEFAULT 'now'
 );
+-- PROJ-15: Auto-Triage mit Ampel (Spiegel von sql/016_triage.sql).
+CREATE TABLE triage_einstellung (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL UNIQUE, leistungs_formular_id TEXT,
+    leistungs_feld_id TEXT, wunschtermin_feld_id TEXT,
+    naechster_freier_termin TEXT, created_at TEXT NOT NULL DEFAULT 'now',
+    updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE triage_leistungswert (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, einstellung_id TEXT NOT NULL,
+    wert TEXT NOT NULL, klassifikation TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now',
+    UNIQUE (einstellung_id, wert)
+);
 """
-
 import uuid
 from datetime import datetime, timezone
 
