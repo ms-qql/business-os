@@ -110,7 +110,8 @@ def mark_versendet(mandant_id: str, angebot_id: str, empfaenger_email: str, vers
 
 POSITION_COLS = (
     "id, mandant_id, angebot_id, bezeichnung, menge, einheit, einzelpreis, steuersatz, "
-    "rabatt_typ, rabatt_wert, sortierung, created_at, updated_at"
+    "rabatt_typ, rabatt_wert, sortierung, kalkulierter_einzelpreis, "
+    "preis_override_begruendung, created_at, updated_at"
 )
 
 
@@ -124,8 +125,8 @@ def list_positionen(mandant_id: str, angebot_id: str) -> list[dict]:
 
 def get_position(mandant_id: str, angebot_id: str, position_id: str) -> dict | None:
     rows = db.engine.query(
-        f"SELECT {POSITION_COLS} FROM angebot_position "
-        "WHERE mandant_id = %s AND angebot_id = %s AND id = %s",
+        f"SELECT {POSITION_COLS} FROM angebot_position WHERE mandant_id = %s "
+        f"AND angebot_id = %s AND id = %s",
         (mandant_id, angebot_id, position_id), mandant_id=mandant_id,
     )
     return rows[0] if rows else None
@@ -133,14 +134,14 @@ def get_position(mandant_id: str, angebot_id: str, position_id: str) -> dict | N
 
 def create_position(mandant_id: str, angebot_id: str, bezeichnung: str, menge: float, einheit: str,
                     einzelpreis: float, steuersatz: float, rabatt_typ: str, rabatt_wert: float,
-                    sortierung: int) -> dict:
+                    sortierung: int, kalkulierter_einzelpreis: float | None = None) -> dict:
     pid = str(uuid.uuid4())
     db.engine.command(
         "INSERT INTO angebot_position (id, mandant_id, angebot_id, bezeichnung, menge, einheit, "
-        "einzelpreis, steuersatz, rabatt_typ, rabatt_wert, sortierung) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "einzelpreis, steuersatz, rabatt_typ, rabatt_wert, sortierung, kalkulierter_einzelpreis) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (pid, mandant_id, angebot_id, bezeichnung, menge, einheit, einzelpreis, steuersatz,
-         rabatt_typ, rabatt_wert, sortierung),
+         rabatt_typ, rabatt_wert, sortierung, kalkulierter_einzelpreis),
         mandant_id=mandant_id,
     )
     return get_position(mandant_id, angebot_id, pid)

@@ -151,6 +151,24 @@ CREATE TABLE angebot_position (
     menge REAL NOT NULL, einheit TEXT NOT NULL, einzelpreis REAL NOT NULL, steuersatz REAL NOT NULL,
     rabatt_typ TEXT NOT NULL DEFAULT 'prozent', rabatt_wert REAL NOT NULL DEFAULT 0,
     sortierung INTEGER NOT NULL DEFAULT 0,
+    kalkulierter_einzelpreis REAL, preis_override_begruendung TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE gewerk_kategorie (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE gewerk (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, kategorie_id TEXT,
+    bezeichnung TEXT NOT NULL, langbeschreibung TEXT, einheit TEXT NOT NULL,
+    kalkulationsart TEXT NOT NULL DEFAULT 'je_einheit',
+    steuersatz REAL NOT NULL DEFAULT 19,
+    created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE gewerk_kostenzeile (
+    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, gewerk_id TEXT NOT NULL,
+    kostenart TEXT NOT NULL, menge REAL NOT NULL, einheit TEXT NOT NULL,
+    ek_einzelpreis REAL NOT NULL, zuschlag_prozent REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT 'now', updated_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE termin (
@@ -174,12 +192,6 @@ CREATE TABLE onboarding_testvorgang (
     id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, vorgang_id TEXT NOT NULL,
     kunde_id TEXT NOT NULL, objekt_id TEXT, anfrage_id TEXT, erstellt_von TEXT,
     created_at TEXT NOT NULL DEFAULT 'now', UNIQUE (vorgang_id)
-);
-CREATE TABLE preisliste (
-    id TEXT PRIMARY KEY, mandant_id TEXT NOT NULL, bezeichnung TEXT NOT NULL,
-    einheit TEXT NOT NULL DEFAULT 'Stk.', netto_einzelpreis REAL NOT NULL DEFAULT 0,
-    steuersatz REAL NOT NULL DEFAULT 19, created_at TEXT NOT NULL DEFAULT 'now',
-    updated_at TEXT NOT NULL DEFAULT 'now'
 );
 CREATE TABLE rechnung_nummernkreis (
     mandant_id TEXT PRIMARY KEY, letzte_nummer INTEGER NOT NULL DEFAULT 0

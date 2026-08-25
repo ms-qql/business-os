@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import io
 import re
 
 from app import db
 from app.errors import ConflictError, NotFoundError, ValidationError
 from app.features.email import mailclient
-from app.features.email import repository as email_repo
 from app.features.onboarding import branchenpakete
 from app.features.onboarding import repository as repo
 from app.features.onboarding import schemas
@@ -39,7 +37,7 @@ def get_onboarding_status(mandant_id: str) -> schemas.OnboardingStatus:
     domain = repo.get_domain(mandant_id)
     active_leistungen = repo.count_active_leistungen(mandant_id)
     konto = repo.get_konto_version(mandant_id)
-    preisliste_anzahl = repo.count_preisliste(mandant_id)
+    preisliste_anzahl = repo.count_gewerke(mandant_id)
     testvorgang = repo.get_testvorgang(mandant_id)
 
     # Postfach: nur ein Test mit passender Konfigurationsversion zählt.
@@ -126,12 +124,12 @@ def get_onboarding_status(mandant_id: str) -> schemas.OnboardingStatus:
                                  "; ".join(teile) + ".", "Postfach-Einstellungen",
                                  postfach_test=postfach_test))
 
-    # 6) Preisliste (nicht pflicht für Veröffentlichung)
+    # 6) Gewerke-Katalog (nicht pflicht für Veröffentlichung)
     if preisliste_anzahl > 0:
-        schritte.append(_schritt_erledigt("preisliste", "Preisliste", False, ziel="Onboarding"))
+        schritte.append(_schritt_erledigt("preisliste", "Katalog (Gewerke)", False, ziel="Onboarding"))
     else:
-        schritte.append(_schritt("preisliste", "Preisliste", False, "offen",
-                                 "Noch keine Katalogposition erfasst.",
+        schritte.append(_schritt("preisliste", "Katalog (Gewerke)", False, "offen",
+                                 "Noch keine Gewerke erfasst.",
                                  "Onboarding"))
 
     # 7) Testanfrage
@@ -260,24 +258,23 @@ def veroeffentlichen(mandant_id: str, user_id: str | None) -> schemas.Veroeffent
 
 def _now() -> str:
     import datetime
+
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 # --- Postfach-Test (gegen gespeichertes Konto) ---------------------------
 
 def postfach_test(mandant_id: str, user_id: str | None) -> schemas.PostfachTestResult:
-    konto = email_repo.get_konto(mandant_id)
+    konto = repo.get_konto_version(mandant_id)
     if not konto:
         raise NotFoundError("Es ist noch kein Postfach verbunden.")
-    decrypted = mailclient.decrypt_konto(konto)
+    from app.features.email import repository as email_repo
+
+    konto_row = email_repo.get_konto(mandant_id)
+    decrypted = mailclient.decrypt_konto(konto_row)
     imap_ok, smtp_ok, detail = mailclient.test_connection(decrypted)
-    # Ein fehlgeschlagener Test wird versiongebunden protokolliert, damit der
-    # Schritt nachvollziehbar "In Bearbeitung" bleibt (Design Abschnitt C).
-    # Erst wenn beide Teile ok sind, gilt der Pflichtschritt als erfüllt. Ein
-    # späteres Ändern des Kontos erhöht konfiguration_version und entwertet
-    # diesen Test automatisch.
     repo.save_postfach_test(
-        mandant_id, konto["id"], int(konto["konfiguration_version"]),
+        mandant_id, konto_row["id"], int(konto_row["konfiguration_version"]),
         imap_ok, smtp_ok, detail, user_id,
     )
     return schemas.PostfachTestResult(
@@ -305,11 +302,9 @@ def create_testvorgang(mandant_id: str, user_id: str | None) -> schemas.Testvorg
     adresse = settings.get("adresse") or "Testadresse"
     anliegen = "Onboarding-Durchstich: Testanfrage"
 
-    # Echte Anfrage über das öffentliche Formular (Repository-Ebene, wie
-    # website_service.submit_anfrage, nur ohne den automatischen
-    # Nicht-Test-Vorgang — dieser wird hier als Testvorgang geführt).
     from app.features.website import repository as website_repo
     from app.features.vorgaenge import repository as vorgaenge_repo
+
     kennung = f"onboarding-test-{_uuid()}"
     anfrage_id = website_repo.create_anfrage(
         mandant_id, f"Onboarding-Test ({firmenname})", "E-Mail", None, email,
@@ -322,7 +317,6 @@ def create_testvorgang(mandant_id: str, user_id: str | None) -> schemas.Testvorg
         mandant_id, kunde_id, objekt_id, anliegen, "Onboarding-Test"
     )
     repo.link_testvorgang(mandant_id, vorgang_id, kunde_id, objekt_id, anfrage_id, user_id)
-    # Anfrage mit dem (Test-)Vorgang verknüpfen (wie bei echter Übernahme).
     vorgaenge_repo.mark_anfrage_uebernommen(mandant_id, anfrage_id, vorgang_id)
 
     bestaetigt = _send_test_bestaetigung(mandant_id, vorgang_id, email)
@@ -349,12 +343,14 @@ def _last_anfrage_id(mandant_id: str, kennung: str) -> str | None:
 
 def _uuid() -> str:
     import uuid as _uuid_mod
+
     return str(_uuid_mod.uuid4())
 
 
 def _send_test_bestaetigung(mandant_id: str, vorgang_id: str, empfaenger: str) -> bool:
     from app.features.email import mailclient as _mc
     from app.features.email import repository as _email_repo
+
     konto = _email_repo.get_konto(mandant_id)
     if not konto:
         return False
@@ -381,7 +377,7 @@ def delete_testvorgang(mandant_id: str, vorgang_id: str) -> None:
         repo.cascade_delete_testvorgang(tx, mandant_id, vorgang_id, kunde_id, objekt_id)
 
 
-# --- Branchenpaket (PROJ-14, atomare Übernahme) -------------------------
+# --- Branchenpaket (PROJ-14, atomare Übernahme, PROJ-22-erweitert) -------
 
 def list_branchenpakete() -> list[schemas.BranchenpaketOption]:
     return [schemas.BranchenpaketOption(**o) for o in branchenpakete.liste_optionen()]
@@ -390,7 +386,9 @@ def list_branchenpakete() -> list[schemas.BranchenpaketOption]:
 def uebernehmen_branchenpaket(mandant_id: str, kennung: str) -> schemas.BranchenpaketUebernahmeResult:
     """Kopiert atomar alle Startinhalte des gewählten Pakets in genau einen
     Mandanten und schreibt die Paketkennung erst bei Gesamterfolg. Fehler führen
-    zum Rollback aller Kopien und der Mandantenfelder (ADR-14-3)."""
+    zum Rollback aller Kopien und der Mandantenfelder (ADR-14-3). PROJ-22: statt
+    der flachen preisliste werden Kategorien, Gewerke und Kostenzeilen
+    übernommen (ADR-22-4)."""
     paket = branchenpakete.get_paket(kennung)
     if paket is None:
         raise ValidationError(
@@ -404,7 +402,7 @@ def uebernehmen_branchenpaket(mandant_id: str, kennung: str) -> schemas.Branchen
     if bestehend and bestehend.get("branchenpaket_kennung"):
         raise ConflictError("Es wurde bereits ein Branchenpaket übernommen.")
     if (repo.count_all_leistungen(mandant_id) > 0
-            or repo.count_preisliste(mandant_id) > 0
+            or repo.count_gewerke(mandant_id) > 0
             or _count_formulare(mandant_id) > 0):
         raise ConflictError(
             "Es existieren bereits Inhalte in diesem Betrieb. Eine Paketübernahme "
@@ -412,24 +410,36 @@ def uebernehmen_branchenpaket(mandant_id: str, kennung: str) -> schemas.Branchen
         )
 
     from app.features.formulare import repository as formular_repo
+    from app.features.gewerke import repository as gewerk_repo
+    from app.features.website import repository as website_repo
+
     vorlage = formular_repo.TEMPLATES[paket.formular_vorlage]
 
     try:
         with db.engine.transaction(mandant_id=mandant_id) as tx:
             # 1) Leistungsseiten (ausschließlich dieser Pfad, ADR-14-2).
-            from app.features.website import repository as website_repo
             website_repo.seed_leistungen(mandant_id, paket.leistungen, tx=tx)
-            # 2) Preisliste.
-            for p in paket.preisliste:
-                repo.create_preisliste_position(
-                    mandant_id, p["bezeichnung"], p["einheit"],
-                    p["netto_einzelpreis"], p["steuersatz"], tx=tx,
+            # 2) Kategorien (PROJ-22).
+            kategorie_ids: dict[str, str] = {}
+            for name in paket.kategorien:
+                kat = gewerk_repo.create_kategorie(mandant_id, name, tx=tx)
+                kategorie_ids[name] = kat["id"]
+            # 3) Gewerke inkl. Kostenzeilen (PROJ-22) — ersetzt die alte
+            #    flache preisliste (ADR-22-4).
+            for g in paket.gewerke:
+                gewerk = gewerk_repo.create_gewerk(
+                    mandant_id, kategorie_id=kategorie_ids.get(g["kategorie"]),
+                    bezeichnung=g["bezeichnung"], langbeschreibung=None,
+                    einheit=g["einheit"], kalkulationsart=g["kalkulationsart"],
+                    steuersatz=g["steuersatz"], tx=tx,
                 )
-            # 3) Formular-Startvorlage (eigene Kopie, kein öffentlicher Snapshot).
+                gewerk_repo.replace_kostenzeilen(
+                    mandant_id, gewerk["id"], list(g["kostenzeilen"]), tx=tx)
+            # 4) Formular-Startvorlage (eigene Kopie, kein öffentlicher Snapshot).
             fid = formular_repo.create_formular(
                 mandant_id, vorlage["name"], vorlage["komplexitaet"], tx=tx)
             formular_repo.seed_template_tx(mandant_id, fid, vorlage, tx)
-            # 4) Paketkennung erst jetzt schreiben.
+            # 5) Paketkennung erst jetzt schreiben.
             repo.set_mandant_paket(mandant_id, paket.kennung, paket.version, tx=tx)
     except Exception:
         # Alles oder nichts: bei Fehler bleibt kein teilweise übernommener
@@ -447,105 +457,5 @@ def uebernehmen_branchenpaket(mandant_id: str, kennung: str) -> schemas.Branchen
 
 def _count_formulare(mandant_id: str) -> int:
     from app.features.formulare import repository as formular_repo
+
     return formular_repo.count_formulare(mandant_id)
-
-
-# --- Preisliste / Leistungskatalog (PROJ-7, Schritt 6) -------------------
-
-def list_preisliste(mandant_id: str) -> schemas.KatalogListe:
-    positionen = [schemas.PreislistePosition(**p) for p in repo.list_preisliste(mandant_id)]
-    return schemas.KatalogListe(positionen=positionen)
-
-
-def create_preisliste_position(mandant_id: str, payload: schemas.PreislistePositionInput) -> schemas.PreislistePosition:
-    bezeichnung = payload.bezeichnung.strip()
-    if not bezeichnung:
-        raise ValidationError("Bezeichnung ist erforderlich.")
-    einheit = (payload.einheit or "Stk.").strip() or "Stk."
-    if repo.find_preisliste_by_bezeichnung(mandant_id, bezeichnung):
-        raise ConflictError(f"Eine Katalogposition mit der Bezeichnung „{bezeichnung}“ existiert bereits.")
-    position = repo.create_preisliste_position(
-        mandant_id, bezeichnung, einheit, payload.netto_einzelpreis, payload.steuersatz,
-    )
-    return schemas.PreislistePosition(**position)
-
-
-def delete_preisliste_position(mandant_id: str, position_id: str) -> None:
-    if not repo.get_preisliste_position(mandant_id, position_id):
-        raise NotFoundError("Katalogposition nicht gefunden.")
-    repo.delete_preisliste_position(mandant_id, position_id)
-
-
-def import_preisliste_csv(mandant_id: str, inhalt: bytes) -> schemas.KatalogImportResult:
-    """Importiert eine CSV mit optionalem Header:
-        bezeichnung;einheit;netto_einzelpreis;steuersatz
-    Komma statt Punkt oder Währungszeichen im Preis werden normalisiert (Edge Case).
-    Jede fehlerhafte Zeile wird mit Zeilennummer + Grund gemeldet, korrekte übernommen.
-    Duplikate (gleiche Bezeichnung) werden als Fehler gemeldet, nicht doppelt angelegt."""
-    text = inhalt.decode("utf-8-sig", errors="replace")
-    reader = io.StringIO(text)
-    zeilen = [ln.rstrip("\n").rstrip("\r") for ln in reader if ln.strip() != ""]
-
-    uebernommen: list[schemas.KatalogImportZeile] = []
-    fehler: list[schemas.KatalogImportFehler] = []
-    anzahl = 0
-
-    # Optionale Kopfzeile erkennen (klein, deutsche Spaltennamen).
-    start = 0
-    if zeilen and _is_header(zeilen[0]):
-        start = 1
-
-    for idx in range(start, len(zeilen)):
-        zeilennr = idx + 1
-        teile = [t.strip() for t in zeilen[idx].split(";")]
-        if len(teile) < 4:
-            fehler.append(schemas.KatalogImportFehler(
-                zeile=zeilennr,
-                grund="Zeile muss bezeichnung;einheit;netto_einzelpreis;steuersatz enthalten.",
-            ))
-            continue
-        bezeichnung, einheit, preis_raw, steuer_raw = teile[0], teile[1], teile[2], teile[3]
-        if not bezeichnung:
-            fehler.append(schemas.KatalogImportFehler(zeile=zeilennr, grund="Bezeichnung fehlt."))
-            continue
-        preis = _parse_preis(preis_raw)
-        if preis is None:
-            fehler.append(schemas.KatalogImportFehler(
-                zeile=zeilennr, grund=f"Netto-Einzelpreis ungültig: „{preis_raw}“."))
-            continue
-        steuer = _parse_preis(steuer_raw)
-        if steuer is None:
-            fehler.append(schemas.KatalogImportFehler(
-                zeile=zeilennr, grund=f"Steuersatz ungültig: „{steuer_raw}“."))
-            continue
-        if repo.find_preisliste_by_bezeichnung(mandant_id, bezeichnung):
-            fehler.append(schemas.KatalogImportFehler(
-                zeile=zeilennr,
-                grund=f"Duplikat: „{bezeichnung}“ existiert bereits."))
-            continue
-        repo.create_preisliste_position(mandant_id, bezeichnung, einheit or "Stk.", preis, steuer)
-        uebernommen.append(schemas.KatalogImportZeile(zeile=zeilennr, uebernommen=True))
-        anzahl += 1
-
-    return schemas.KatalogImportResult(uebernommen=uebernommen, fehler=fehler, anzahl_uebernommen=anzahl)
-
-
-def _is_header(zeile: str) -> bool:
-    lower = zeile.lower()
-    return "bezeichnung" in lower and "steuersatz" in lower
-
-
-def _parse_preis(raw: str) -> float | None:
-    """Normalisiert Preisangaben: entfernt Währungszeichen/Leerzeichen, wandelt
-    Komma in Punkt um. Gibt None bei ungültigem Wert zurück."""
-    s = raw.strip().replace("€", "").replace("EUR", "").replace("$", "").strip()
-    if not s:
-        return None
-    s = s.replace(".", "").replace(",", ".") if ("," in s and "." in s) else s.replace(",", ".")
-    try:
-        wert = float(s)
-    except ValueError:
-        return None
-    if wert < 0:
-        return None
-    return round(wert, 2)

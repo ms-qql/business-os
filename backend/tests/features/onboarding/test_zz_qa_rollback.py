@@ -28,9 +28,9 @@ def test_rollback_on_partial_failure(client, mandant):
     leist = db.engine.query("SELECT COUNT(*) AS c FROM leistungsseite WHERE mandant_id = %s",
                             (mandant,), mandant_id=mandant)
     assert int(leist[0]["c"]) == 0, "Rollback fehlgeschlagen: Leistungsseiten blieben nach Fehler bestehen"
-    preis = db.engine.query("SELECT COUNT(*) AS c FROM preisliste WHERE mandant_id = %s",
+    gewerk = db.engine.query("SELECT COUNT(*) AS c FROM gewerk WHERE mandant_id = %s",
                             (mandant,), mandant_id=mandant)
-    assert int(preis[0]["c"]) == 0, "Rollback fehlgeschlagen: Preisliste blieb nach Fehler bestehen"
+    assert int(gewerk[0]["c"]) == 0, "Rollback fehlgeschlagen: Gewerke blieben nach Fehler bestehen"
     rows = db.engine.query("SELECT branchenpaket_kennung FROM mandanten WHERE id = %s",
                            (mandant,), mandant_id=mandant)
     assert rows[0]["branchenpaket_kennung"] is None, "Rollback fehlgeschlagen: Paketkennung wurde trotz Fehler gesetzt"

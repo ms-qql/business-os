@@ -90,9 +90,9 @@ def get_latest_postfach_test(mandant_id: str, email_konto_id: str) -> dict | Non
     return rows[0] if rows else None
 
 
-def count_preisliste(mandant_id: str) -> int:
+def count_gewerke(mandant_id: str) -> int:
     rows = db.engine.query(
-        "SELECT COUNT(*) AS c FROM preisliste WHERE mandant_id = %s",
+        "SELECT COUNT(*) AS c FROM gewerk WHERE mandant_id = %s",
         (mandant_id,), mandant_id=mandant_id,
     )
     return int(rows[0]["c"]) if rows else 0
@@ -297,65 +297,4 @@ def link_anfrage_to_testvorgang(mandant_id: str, anfrage_id: str, vorgang_id: st
         "WHERE mandant_id = %s AND vorgang_id = %s",
         (anfrage_id, mandant_id, vorgang_id),
         mandant_id=mandant_id,
-    )
-
-
-# --- Preisliste / Leistungskatalog (CRUD) --------------------------------
-
-PREISLISTE_COLS = "id, mandant_id, bezeichnung, einheit, netto_einzelpreis, steuersatz, created_at, updated_at"
-
-
-def list_preisliste(mandant_id: str) -> list[dict]:
-    return db.engine.query(
-        f"SELECT {PREISLISTE_COLS} FROM preisliste WHERE mandant_id = %s ORDER BY bezeichnung ASC",
-        (mandant_id,), mandant_id=mandant_id,
-    )
-
-
-def get_preisliste_position(mandant_id: str, position_id: str) -> dict | None:
-    rows = db.engine.query(
-        f"SELECT {PREISLISTE_COLS} FROM preisliste WHERE mandant_id = %s AND id = %s",
-        (mandant_id, position_id), mandant_id=mandant_id,
-    )
-    return rows[0] if rows else None
-
-
-def find_preisliste_by_bezeichnung(mandant_id: str, bezeichnung: str) -> dict | None:
-    rows = db.engine.query(
-        f"SELECT {PREISLISTE_COLS} FROM preisliste WHERE mandant_id = %s AND bezeichnung = %s",
-        (mandant_id, bezeichnung), mandant_id=mandant_id,
-    )
-    return rows[0] if rows else None
-
-
-def create_preisliste_position(mandant_id: str, bezeichnung: str, einheit: str,
-                               netto_einzelpreis: float, steuersatz: float, tx=None) -> dict:
-    pid = str(uuid.uuid4())
-    if tx is None:
-        db.engine.command(
-            "INSERT INTO preisliste (id, mandant_id, bezeichnung, einheit, netto_einzelpreis, steuersatz) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
-            (pid, mandant_id, bezeichnung, einheit, netto_einzelpreis, steuersatz),
-            mandant_id=mandant_id,
-        )
-        return get_preisliste_position(mandant_id, pid)
-    else:
-        tx.command(
-            "INSERT INTO preisliste (id, mandant_id, bezeichnung, einheit, netto_einzelpreis, steuersatz) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
-            (pid, mandant_id, bezeichnung, einheit, netto_einzelpreis, steuersatz),
-        )
-        # Innerhalb der Transaktion lesen, damit kein eigener Commit über die
-        # globale engine passiert (ADR-14-3: alles-oder-nichts bleibt gewahrt).
-        rows = tx.query(
-            f"SELECT {PREISLISTE_COLS} FROM preisliste WHERE mandant_id = %s AND id = %s",
-            (mandant_id, pid),
-        )
-        return rows[0] if rows else None
-
-
-def delete_preisliste_position(mandant_id: str, position_id: str) -> None:
-    db.engine.command(
-        "DELETE FROM preisliste WHERE mandant_id = %s AND id = %s",
-        (mandant_id, position_id), mandant_id=mandant_id,
     )
